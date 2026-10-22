@@ -1,6 +1,6 @@
 import streamlit as st
 from PIL import Image
-import google.generativeai as genai
+from google import genai
 
 st.set_page_config(page_title="AI Forex & Betting Deep Analyst", page_icon="⚡", layout="wide")
 st.title("⚡ AI Deep Analyst: Betting & Forex")
@@ -23,15 +23,14 @@ if uploaded_file:
         else:
             with st.spinner("AI inachambua picha... Subiri kidogo..."):
                 try:
-                    genai.configure(api_key=api_key.strip())
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    client = genai.Client(api_key=api_key.strip())
 
                     if analysis_type == "⚽ Football / Sports Betting":
                         prompt = (
                             "Wewe ni mchambuzi wa michezo. Soma screenshot hii ya mechi na ufanye uchambuzi kwa Kiswahili:\n"
                             "1. Timu na mashindano yanayoonekana.\n"
                             "2. Odds na tathmini ya mchezo.\n"
-                            "3. Utabiri wa matokeo (1X2, Over/Under, GG/NG) na asilimia ya uhakika (Confidence %)."
+                            "3. Mwelekeo wa matokeo (1X2, Over/Under, GG/NG) na asilimia ya uhakika (Confidence %)."
                         )
                     else:
                         prompt = (
@@ -41,7 +40,10 @@ if uploaded_file:
                             "3. Setup: Pendekezo (BUY, SELL, WAIT), Entry, SL na TP."
                         )
 
-                    response = model.generate_content([prompt, image])
+                    response = client.models.generate_content(
+                        model="gemini-3.8-flash",
+                        contents=[prompt, image]
+                    )
 
                     st.success("✅ Uchambuzi Umekamilika!")
                     st.markdown("### 📊 Ripoti ya Uchambuzi:")
