@@ -11,15 +11,26 @@ st.set_page_config(
 )
 
 st.title("⚡ AI Deep Analyst: Betting & Forex")
-st.write("Weka screenshot ya chati ya Forex au mechi ya Betting kwa ajili ya uchambuzi wa kina.")
+st.write("Weka screenshot ya chati ya Forex au mechi ya Betting kwa ajili ya uchambuzi wa kina unaotumia taarifa za mtandaoni mubashara.")
+
+# Jaribu kusoma secret kama ipo, vinginevyo tumia inayowekwa na mtumiaji
+default_key = st.secrets.get("GEMINI_API_KEY", "")
 
 # Sidebar ya Mipangilio
 with st.sidebar:
     st.header("⚙️ Mipangilio")
-    api_key = st.text_input("Weka Gemini API Key yako hapa:", type="password")
-    analysis_type = st.radio("Chagua Aina ya Uchambuzi:", ["⚽ Football / Sports Betting", "📈 Forex Trading"])
+    api_key = st.text_input(
+        "Weka Gemini API Key yako hapa:",
+        value=default_key,
+        type="password",
+        help="Pata API key ya bure kupitia aistudio.google.com"
+    )
+    analysis_type = st.radio(
+        "Chagua Aina ya Uchambuzi:",
+        ["⚽ Football / Sports Betting", "📈 Forex Trading"]
+    )
     st.markdown("---")
-    st.info("AI hii inasoma screenshot yako kisha inaingia mtandaoni live kutafuta majeruhi, pressure ya mechi, na habari za soko.")
+    st.info("💡 **Jinsi inavyofanya kazi:**\nAI inachanganua picha uliyoweka, kisha inatumia **Google Search** kutafuta taarifa za karibuni mtandaoni kama majeruhi, habari za soko, na fomu ya timu.")
 
 # Eneo la kupakia picha
 uploaded_file = st.file_uploader("Pakia Screenshot hapa (PNG, JPG, JPEG):", type=["png", "jpg", "jpeg"])
@@ -32,9 +43,11 @@ if uploaded_file:
         if not api_key:
             st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto (Sidebar)!")
         else:
-            with st.spinner("AI inasoma picha na inatafuta taarifa live mtandaoni... Subiri kidogo..."):
+            with st.spinner("AI inasoma picha na inatafuta taarifa live mtandaoni... Tafadhali subiri kidogo..."):
                 try:
-                    client = genai.Client(api_key=api_key)
+                    # Safisha key kuondoa nafasi zisizo za lazima
+                    clean_api_key = api_key.strip()
+                    client = genai.Client(api_key=clean_api_key)
 
                     if analysis_type == "⚽ Football / Sports Betting":
                         prompt = """
@@ -79,18 +92,10 @@ if uploaded_file:
                         Toa majibu kwa mpangilio mzuri wa kitaalamu na lugha ya Kiswahili.
                         """
 
-                    response = client.models.generate_content(
-                        model="gemini-2.5-flash",
-                        contents=[image, prompt],
-                        config=types.GenerateContentConfig(
-                            tools=[{"google_search": {}}],
-                            temperature=0.2
-                        )
-                    )
-
-                    st.success("✅ Uchambuzi Umekamilika!")
-                    st.markdown("### 📊 Ripoti ya Uchambuzi:")
-                    st.markdown(response.text)
-
-                except Exception as e:
-                    st.error(f"Kumetokea hitilafu: {str(e)}")
+                    # Jaribu kutumia gemini-2.5-flash kwanza, ikikosa ibadilishe kwenda gemini-1.5-flash
+                    try:
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=[image, prompt],
+                            config=types.GenerateContentConfig(
+                                tools=[{"go
