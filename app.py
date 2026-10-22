@@ -43,7 +43,7 @@ if uploaded_file:
                         )
 
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-8.3-flash",
                         contents=[image, prompt],
                         config=types.GenerateContentConfig(
                             tools=[types.Tool(google_search=types.GoogleSearch())],
