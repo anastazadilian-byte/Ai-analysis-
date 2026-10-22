@@ -70,4 +70,20 @@ with tab2:
                         "2. Eleza kwanini timu hiyo ipo SIRIASI kupambana leo kwa Kiswahili fasaha."
                     )
                     response = client.models.generate_content(
-                        model="gemini-3.8-flas
+                        model="gemini-3.8-flash",
+                        contents=odds_prompt
+                    )
+                    st.success("✅ Tiketi Yako Ipo Tayari!")
+                    st.markdown(response.text)
+                except Exception as e:
+                    st.error(f"Kumetokea hitilafu: {str(e)}")
+
+with tab3:
+    st.subheader("⚽ Matokeo ya Mechi Mubashara (LiveScores)")
+    livescore_html = """
+    <iframe src="https://www.scorebat.com/embed/livescore/" 
+            frameborder="0" width="100%" height="700" 
+            style="width:100%;height:700px;border:none;border-radius:12px;">
+    </iframe>
+    """
+    components.html(livescore_html, height=720, scrolling=True)
