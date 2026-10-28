@@ -5,7 +5,7 @@ import streamlit.components.v1 as components
 from datetime import datetime
 import time
 
-# Usanidi wa Ukurasa
+# Usanidi wa Ukurasa wa Kisasa
 st.set_page_config(
     page_title="BetPro AI - Kikosi cha Kijasusi cha Soka",
     page_icon="⚽",
@@ -45,7 +45,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="hero-title">⚽ BetPro AI: Jicho la Kijasusi cha Soka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">LiveScores, Ukaguzi wa Mitego ya Odds, na Uchambuzi wa Uhakika (85%+ Probability).</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Pakia Screenshot ya Top Matches, AI inachuja H2H, inaondoa mitego na kutoa Best of the Day (85%+ Probability).</p>', unsafe_allow_html=True)
 
 def call_gemini(client, contents):
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash"]
@@ -77,134 +77,84 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("""
-    **Mkakati wa Zero-Trap:**
-    - 🛡️ Epuka timu zenye odds 1.20 zenye uchovu
-    - 📊 H2H imara & Motisha ya pointi 3
-    - 🎯 Machaguo salama (Double Chance / Over 1.5)
+    **Jinsi ya Kupata Ushindi:**
+    1. Fungua Tab ya 2 (LiveScore), piga screenshot sehemu ya **Top Matches**.
+    2. Weka picha hiyo kwenye Tab ya 1 (Scanner).
+    3. AI itasoma mechi zote na kutoa **Best of the Day** zisizo na mitego!
     """)
 
 api_key = st.session_state.saved_api_key
 
-tab1, tab2, tab3 = st.tabs([
-    "⚽ LiveScores & Best of the Day", 
-    "📸 Kichambuzi cha Screenshot (H2H & Lineups)", 
-    "🔥 Sure 2 Odds Generator"
+tab1, tab2 = st.tabs([
+    "📸 Kichambuzi cha Picha (Top Matches & Best of Day)", 
+    "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: LIVESCORES + BEST OF THE DAY =================
+# ================= TAB 1: SCREENSHOT TO BEST OF THE DAY =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
-    st.subheader(f"🏆 Best of the Day - Mechi Halisi za Leo ({today_str})")
-    st.write("Angalia mechi zinazoonekana kwenye **Top Matches** kwenye LiveScore chini, kisha ziweke hapa chini ili AI iondoe mitego na kutoa mechi bora pekee:")
-
-    top_matches_input = st.text_area(
-        "Andika mechi za leo unazoziona kwenye LiveScore (Mfano: AC Milan vs Bologna, Genoa vs Juventus, Venezia vs Inter Milan):",
-        placeholder="Mfano: AC Milan vs Bologna, Venezia vs Inter Milan, Genoa vs Juventus, Monza vs Napoli",
-        help="Ili mechi zisiwe za kubuni, andika zile unazoziona kwenye orodha ya ScoreBat hapo chini."
-    )
-
-    if st.button("🌟 Chuja Mitego & Toa 'Best of the Day'", key="btn_filter_today"):
-        if not api_key:
-            st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto kwanza!")
-        elif not top_matches_input.strip():
-            st.warning("Tafadhali andika majina ya mechi 2 au zaidi za leo kutoka kwenye LiveScore hapo chini!")
-        else:
-            with st.spinner("AI inachambua H2H, msimamo na motisha kwa mechi hizi za leo..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    prompt_filter = f"""
-                    Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Professional Betting Risk Analyst).
-                    Hizi hapa ni mechi halisi zinazochezwa LEO:
-                    {top_matches_input}
-
-                    KAZI YAKO:
-                    1. Chagua mechi 2 au 3 PEKEE zenye uhakika mkubwa zaidi wa 85%+ kutoka kwenye orodha hiyo hapo juu. USIWEKE mechi nyingine ya nje ya orodha hii!
-                    2. ONDOA MITEGO YOTE (TRAP ELIMINATION): Epuka timu kubwa zenye historia ya kutoa sare za kizembe au mechi za dabi zenye vurugu.
-                    3. Chambua H2H na motisha ya pointi ya kila timu iliyochaguliwa.
-
-                    Jibu kwa Kiswahili chenye mpangilio huu:
-                    - ⚽ **MECHI ILIYOCHAGULIWA:**
-                    - 🏆 **KWANINI NI BEST OF THE DAY (H2H & Form):**
-                    - 🎯 **CHAGUO SALAMA (85%+):** (Mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
-                    - ⚠️ **KIEPUKWE (TRAP ALERT):** Kitu gani cha kuepuka kwenye mechi hii.
-                    """
-                    result_text = call_gemini(client, [prompt_filter])
-                    st.success("✅ Mechi Bora za Leo Zimechaguliwa Bila Makosa!")
-                    st.markdown(result_text)
-                    st.markdown("---")
-                except Exception as e:
-                    st.error(f"Hitilafu: {str(e)}")
-
-    st.subheader("📺 Ratiba & Matokeo Mubashara (ScoreBat Live)")
-    st.write("Tumia LiveScore hii kuona mechi za leo, nakili majina yake na uyaweke juu kwa uchambuzi wa haraka:")
-    components.html(
-        '<iframe src="https://www.scorebat.com/embed/livescore/" frameborder="0" width="100%" height="700" style="width:100%;height:700px;border:none;border-radius:12px;background:#161b22;"></iframe>', 
-        height=720, 
-        scrolling=True
-    )
-
-# ================= TAB 2: SCREENSHOT ANALYZER =================
-with tab2:
-    st.subheader("📸 Usomaji wa Mechi kwa Screenshot (H2H, Lineups & Vikosi)")
-    st.write("Pakia screenshot ya mechi kutoka LiveScore au kwenye tovuti ya betting:")
+    st.subheader(f"📸 Pakia Screenshot ya 'Top Matches' ya Leo ({today_str})")
+    st.write("Chukua screenshot ya orodha ya mechi kutoka ScoreBat (chini), SportyBet, BetPawa au Flashscore kisha weka hapa:")
 
     col_up1, col_up2 = st.columns([1, 1])
     with col_up1:
         uploaded_file = st.file_uploader("Pakia Screenshot ya Mechi:", type=["png", "jpg", "jpeg"], key="soccer_uploader")
     with col_up2:
-        extra_info = st.text_area(
-            "Taarifa za Ziada (Hiari):",
-            placeholder="Mfano: Mchezaji fulani yupo nje..."
+        target_odds = st.selectbox(
+            "Lengo la Mkeka wako:",
+            ["🎯 Best of the Day (Mechi 2-3 zilizo Salama Zaidi)", "🔥 Sure 2 Odds Pekee", "⚠️ Ukaguzi wa Mitego (Trap Check Pekee)"]
         )
 
     if uploaded_file is not None:
         img = Image.open(uploaded_file).convert("RGB")
         st.image(img, caption="Screenshot Uliyopakia", use_container_width=True)
 
-        if st.button("🚀 Anza Ukaguzi wa Kina wa Mechi", key="btn_scan"):
+        if st.button("🚀 Anza Uchambuzi & Toa 'Best of the Day'", key="btn_scan"):
             if not api_key:
                 st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto!")
             else:
-                with st.spinner("AI inasoma picha na kuchambua H2H..."):
+                with st.spinner("AI inasoma mechi zote kwenye picha, inachunguza H2H na kuondoa mitego..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt_img = f"""
-                        Wewe ni Mchambuzi Mkuu wa Soka. Chambua screenshot hii ya mechi kwa Kiswahili:
-                        1. ⚔️ Timu na mashindano.
-                        2. 📊 Historia ya H2H na fomu ya karibuni.
-                        3. 🎯 Chaguo salama lenye uhakika wa 85%+.
-                        4. ⚠️ Trap Alert: Kama kuna mtego wa odds.
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Chief Betting Analyst & Risk Manager).
+                        Soma kwa makini screenshot hii inayoonyesha mechi/odds za mpira. Lengo la mtumiaji ni: '{target_odds}'.
+
+                        FANYA KAZI KWA HATUA HIZI KWA KISWAHILI KINACHOELEWEKA NA KITAALAMU:
+                        
+                        1. 📋 **MECHI ZILIZOGUNDULIKA KWENYE PICHA:**
+                           - Orodhesha mechi zote zinazoonekana wazi kwenye screenshot hii.
+
+                        2. 🏆 **BEST OF THE DAY (MECHI BORA 2 HADI 3 SALAMA ZAIDI - 85%+ CONFIDENCE):**
+                           - Kutoka kwenye zile mechi za picha, teua zile tu zenye usalama mkubwa zaidi wa kutoa matokeo.
+                           - Eleza H2H yao na kwanini timu husika ipo 'SIRIASI' kupambana (motisha ya pointi, kulinda ubingwa au kutoshuka daraja).
+                           - Toa soko salama (mf. Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet, n.k).
+
+                        3. ⚠️ **UKAGUZI WA MITEGO (TRAP ALERT - ZIKWEPE HIZI!):**
+                           - Taja mechi yoyote iliyopo kwenye picha hiyo ambayo ni mtego wa kubomoa mikeka (kwa mfano: timu kubwa kupewa odds ndogo lakini ina uchovu, wachezaji majeruhi au ni dabi ngumu).
+
+                        4. 🎫 **MUHTASARI WA TIKETI SALAMA YA LEO:**
+                           - Orodha fupi ya kubetia (Mechi + Chaguo Salama).
                         """
                         result_text = call_gemini(client, [prompt_img, img])
-                        st.success("✅ Uchambuzi Umekamilika!")
+                        st.success("✅ Uchambuzi na Best of the Day Zimekamilika!")
                         st.markdown(result_text)
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
-# ================= TAB 3: SURE 2 ODDS =================
-with tab3:
-    st.subheader(f"🔥 Jenereta ya Sure 2 Odds ({today_str})")
-    st.write("Tengeneza tiketi ya odds 2.00 kulingana na mechi unazotaka:")
-
-    selected_matches = st.text_input(
-        "Andika mechi za leo:", 
-        placeholder="Mfano: AC Milan vs Bologna, Inter vs Venezia..."
+# ================= TAB 2: LIVESCORES =================
+with tab2:
+    st.subheader("📺 Ratiba & Matokeo Mubashara (LiveScores)")
+    st.write("Angalia sehemu ya **TOP MATCHES**, piga screenshot, kisha rudi kwenye Tab ya kwanza kuichambua:")
+    
+    # LiveScore iliyoboreshwa kusasisha tarehe ya leo
+    components.html(
+        f"""
+        <iframe src="https://www.scorebat.com/embed/livescore/" 
+                frameborder="0" width="100%" height="750" 
+                style="width:100%;height:750px;border:none;border-radius:12px;background:#161b22;">
+        </iframe>
+        """, 
+        height=770, 
+        scrolling=True
     )
-
-    if st.button("🎯 Tengeneza Mkeka wa 2 Odds", key="btn_odds"):
-        if not api_key:
-            st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto!")
-        else:
-            with st.spinner("AI inatengeneza tiketi salama..."):
-                try:
-                    client = genai.Client(api_key=api_key)
-                    p_odds = f"""
-                    Tengeneza tiketi ya mechi 2 au 3 zenye takribani Odds 2.00 kwa mechi hizi: '{selected_matches}'.
-                    - Tumia machaguo salama sana (1X/X2, Over 1.5, DNB).
-                    - Toa sababu fupi ya H2H na motisha kwa Kiswahili.
-                    """
-                    result_text = call_gemini(client, [p_odds])
-                    st.success("✅ Tiketi Yako Ipo Tayari!")
-                    st.markdown(result_text)
-                except Exception as e:
-                    st.error(f"Hitilafu: {str(e)}")
