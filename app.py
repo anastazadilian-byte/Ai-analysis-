@@ -5,9 +5,10 @@ import streamlit.components.v1 as components
 from datetime import datetime
 import time
 
+# Usanidi wa Ukurasa wa Hadhi ya VIP
 st.set_page_config(
-    page_title="BetPro AI - Kikosi cha Kijasusi cha Soka",
-    page_icon="⚽",
+    page_title="BetPro VIP - AI Intelligence Syndicate",
+    page_icon="👑",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -15,42 +16,87 @@ st.set_page_config(
 if "saved_api_key" not in st.session_state:
     st.session_state.saved_api_key = ""
 
+# Muonekano wa Kisasa wa Kulipia (Ultra-Premium VIP Theme)
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .stApp { background-color: #0b0f19; color: #f0f6fc; }
-    .hero-title {
-        font-size: 2.2rem;
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    
+    .stApp {
+        background: radial-gradient(circle at 10% 20%, #0d1527 0%, #070a12 90%);
+        color: #e6edf3;
+    }
+    
+    /* VIP Header */
+    .vip-badge {
+        display: inline-block;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #000;
         font-weight: 800;
-        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        font-size: 0.75rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        letter-spacing: 1px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+    
+    .hero-title {
+        font-size: 2.3rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        background: linear-gradient(90deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0px;
+        margin: 0;
     }
-    .hero-sub { color: #8b949e; font-size: 1rem; margin-bottom: 20px; }
-    .guide-box {
-        background: #161f30;
-        border: 1px solid #1f2d47;
-        border-radius: 10px;
-        padding: 14px;
-        margin-bottom: 15px;
+    
+    .hero-sub {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin-top: 5px;
+        margin-bottom: 25px;
     }
+    
+    /* Kadi za Kisasa za VIP */
+    .vip-card {
+        background: rgba(17, 24, 39, 0.7);
+        border: 1px solid rgba(56, 189, 248, 0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 18px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Vitufe vya Kulipia */
     .stButton > button {
-        background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
-        color: white; font-weight: 700; border: none; border-radius: 8px;
-        padding: 0.6rem 1.4rem; transition: 0.3s;
-        box-shadow: 0 4px 14px rgba(46, 160, 67, 0.35);
-    }
-    .stButton > button:hover {
-        background: linear-gradient(135deg, #2ea043 0%, #3fb950 100%);
+        background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
         color: white;
+        font-weight: 700;
+        border: none;
+        border-radius: 10px;
+        padding: 0.7rem 1.6rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 18px rgba(14, 165, 233, 0.35);
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(135deg, #38bdf8 0%, #1d4ed8 100%);
+        box-shadow: 0 6px 24px rgba(56, 189, 248, 0.5);
+        color: #fff;
+        transform: translateY(-1px);
     }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="hero-title">⚽ BetPro AI: Jicho Imara la Kijasusi cha Soka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Mfumo maalum wa kuondoa mitego ya mechi za jana, kukagua H2H, na kutoa Best of the Day (85%+ Probability).</p>', unsafe_allow_html=True)
+# Kichwa Kikuu cha Programu
+st.markdown('<span class="vip-badge">👑 VIP AI Terminal</span>', unsafe_allow_html=True)
+st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo wa Kijasusi wa Soka</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Uchambuzi wa H2H, Usomaji wa Motisha (Serious Meter), Ugunduzi wa Mitego, na Ujenzi wa Mikeka ya Uhakika (85%+).</p>', unsafe_allow_html=True)
 
 def call_gemini(client, contents):
     models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash"]
@@ -68,54 +114,60 @@ def call_gemini(client, contents):
                 break
     raise Exception(last_error)
 
+# Sidebar
 with st.sidebar:
-    st.markdown("### ⚙️ Usanidi wa AI")
+    st.markdown("### 👑 VIP Account Settings")
     input_key = st.text_input(
-        "Gemini API Key:", 
+        "Gemini API Access Key:", 
         value=st.session_state.saved_api_key, 
         type="password",
-        help="Weka API Key yako hapa."
+        help="Weka ufunguo wako wa Google Gemini hapa."
     )
     if input_key:
         st.session_state.saved_api_key = input_key.strip()
     
     st.markdown("---")
     st.markdown("""
-    **🧭 Muongozo wa Kuchagua Mechi Salama:**
-    1. Chagua mechi za ligi zenye utulivu (EPL, Serie A, La Liga, Bundesliga, n.k.).
-    2. Epuka mechi za kombe la ndani (Cup matches) maana timu kubwa huweka wachezaji wa akiba.
-    3. Epuka timu kubwa iliyo ugenini yenye odds za chini (1.20 - 1.35) kama katikati ya wiki ina Champions League.
+    **🛡️ Mfumo wa Udhibiti wa Mtaji:**
+    - 🔒 **Ticket A (Safe 2 Odds):** 70% ya bajeti yako.
+    - 🚀 **Ticket B (Multiplier):** 30% ya bajeti yako.
+    - 🚫 **Zero-Trap Rule:** Timu kubwa zenye uchovu hutupwa nje mara moja.
     """)
+    st.info("💡 Hali ya App: **PRO VERSION ACTIVE**")
 
 api_key = st.session_state.saved_api_key
 
+# Tabs Kuu Mbili Zilizonyooka
 tab1, tab2 = st.tabs([
-    "📸 Kichambuzi cha Picha (Best of the Day & H2H)", 
-    "⚽ LiveScores & Ratiba ya Leo Mubashara"
+    "📸 Scanner ya Mechi & VIP Slip Builder", 
+    "⚽ LiveScores & Ratiba Mubashara"
 ])
 
 # ================= TAB 1 =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
-    st.subheader(f"📸 Pakia Picha ya Mechi / Odds za Leo ({today_str})")
     
-    st.markdown("""
-    <div class="guide-box">
-    <b>💡 Hatua Rahisi:</b><br>
-    Piga screenshot ya orodha ya mechi kutoka kwenye <b>SportyBet, BetPawa, FlashScore au 1xBet</b> (mechi zinazoonekana muda na timu), kisha ipandishe hapa chini. AI itatenganisha mechi zilizokwisha chezwa na kutoa <b>Best of the Day za mechi zinazokuja pekee</b>.
+    st.markdown(f"""
+    <div class="vip-card">
+        <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
+        <p style="margin:0; font-size:0.9rem; color:#94a3b8;">
+            Piga screenshot ya orodha ya mechi kutoka app yoyote ya soka (SportyBet, FlashScore, BetPawa, 1xBet). 
+            AI itachambua H2H, itaondoa mitego, na <b>kukujengea mikeka 2 iliyopangwa kisayansi</b> pamoja na hesabu ya mtaji wako.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
-    col_up1, col_up2 = st.columns([1, 1])
-    with col_up1:
-        uploaded_file = st.file_uploader("Pakia Screenshot ya Mechi:", type=["png", "jpg", "jpeg"], key="soccer_uploader")
-    with col_up2:
-        bet_strategy = st.selectbox(
-            "Mkakati Unaoutaka:",
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        uploaded_file = st.file_uploader("Pakia Screenshot ya Mechi/Odds:", type=["png", "jpg", "jpeg"], key="vip_uploader")
+    with col2:
+        user_stake = st.text_input("Mtaji Wako wa Leo (Mfano: TZS 10,000 au 50,000):", value="TZS 20,000")
+        target_mode = st.selectbox(
+            "Chagua Mfumo wa Uchambuzi:",
             [
-                "🏆 Best of the Day (Mechi 2-3 zilizo Salama Zaidi - 85%+)",
-                "🔥 Sure 2 Odds (Odds 2.00 za Uhakika)",
-                "⚠️ Trap Detector (Kagua Mitego Tu)"
+                "👑 VIP Complete Suite (Best of Day + Mikeka 2 + Mgao wa Pesa)",
+                "🔥 Sure 2 Odds Pekee (Mechi 2 za Kulinda Mtaji)",
+                "⚠️ Trap Alert (Ukaguzi wa Mitego ya Timu Kubwa Pekee)"
             ]
         )
 
@@ -123,51 +175,58 @@ with tab1:
         img = Image.open(uploaded_file).convert("RGB")
         st.image(img, caption="Screenshot Uliyopakia", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi wa Kina na AI Imara", key="btn_scan"):
+        if st.button("🚀 Anza Uchambuzi wa Kijeshi wa VIP (Deep AI Run)", key="btn_run_vip"):
             if not api_key:
-                st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto!")
+                st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto kwanza!")
             else:
-                with st.spinner(f"AI inakagua mechi za leo ({today_str}), inatupa mechi za jana na kuchambua H2H..."):
+                with st.spinner("AI inakagua mechi za leo, inachambua H2H, motisha, na kupanga bajeti yako kisayansi..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Kudhibiti Upotevu wa Pesa kwenye Kubashiri (Senior Football Analyst).
-                        Leo ni tarehe {today_str}.
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mshauri Mkuu wa Uwekezaji wa Michezo (Senior Betting Syndicate Manager).
+                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji kwa leo ni: '{user_stake}'. Mfumo aliouchagua: '{target_mode}'.
+
+                        KAZI YAKO KWENYE PICHA HII:
+                        1. Kagua mechi zote zinazoonekana. Ondoa kabisa mechi ambazo zimeshachezwa au ni za jana.
+                        2. ONDOA MITEGO YA WAZI (TRAP ELIMINATION): Taja timu yoyote kubwa iliyo kwenye picha ambayo ni mtego wa kuepuka (kwa sababu ya uchovu, majeruhi, au dabi ngumu).
+                        3. BEST OF THE DAY (Uhakika 85%+): Teua mechi 2 hadi 4 bora zaidi zenye takwimu imara za H2H na motisha kubwa ya pointi 3.
                         
-                        KAZI YAKO KWENYE SCREENSHOT HII:
-                        1. 🚫 **CHUNGUZA MUDA NA TAREHE:**
-                           - ONDOA na USITUMIE mechi yoyote ambayo tayari imechezwa, imeisha au ni ya jana.
-                           - Tumia tu mechi AMBAZO BADO KANISA HAZIJAANZA kuchezwa.
-                           
-                        2. 🔍 **MUONGOZO WA KUCHAGUA MECHI:**
-                           - Kama picha ina mechi nyingi, chagua mechi zenye ushindani na timu zilizopo 'SIRIASI' kupambana (motisha ya ubingwa, kutinga Top 4, au kukwepa kushuka daraja).
-                           - Epuka kabisa mechi zenye mitego ya wazi (timu kubwa kupewa 1.25 ugenini ikiwa na uchovu au majeruhi).
-                           
-                        3. 🏆 **BEST OF THE DAY / MATOKEO YA UCHAMBUZI:**
-                           Kulingana na mkakati wa mtumiaji ({bet_strategy}), toa ripoti kwa Kiswahili fasaha:
-                           - ⚽ **MECHI ZILIZOTEULIWA:** Majina ya timu na ligi.
-                           - 📊 **H2H & FOMU:** Nani ana faida kulingana na historia ya mechi zao na fomu ya karibuni?
-                           - 🎯 **CHAGUO SALAMA (85%+ CONFIDENCE):** Mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet (DNB).
-                           - ⚠️ **KIEPUKWE (TRAP WARNING):** Hatari zozote za kuzingatia ili mkeka usichanike.
-                           - 🎫 **SLIP SUMMARY:** Mechi 2 au 3 zilizopendekezwa na machaguo yake moja kwa moja.
+                        4. JENGA MIKEKA MIWILI (SMART SLIP BUILDER):
+                           - 🎫 **TICKET A (SAFE 2 ODDS - 90% PROBABILITY):**
+                             Mechi 2 tu salama zaidi (kama Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
+                           - 🚀 **TICKET B (VALUE MULTIPLIER - ODDS 4.00+):**
+                             Mechi 3 au 4 zenye faida nzuri zilizolindwa vizuri.
+                        
+                        5. USHAURI WA UGAWAJI WA MTAJI (BANKROLL MANAGEMENT KWA {user_stake}):
+                           - Piga hesabu ya kiasi cha shilingi cha kuweka kwenye Ticket A (70% ya mtaji).
+                           - Piga hesabu ya kiasi cha shilingi cha kuweka kwenye Ticket B (30% ya mtaji).
+                           - Eleza kwanini mfumo huu unamlinda asipoteze pesa zote hata kama tiketi moja ikikosa.
+
+                        Toa ripoti nzima kwa Kiswahili fasaha chenye heshima, maneno ya kitaalamu na mpangilio mzuri wa kadi na vielelezo!
                         """
                         result_text = call_gemini(client, [prompt, img])
-                        st.success("✅ Uchambuzi wa Uhakika Umekamilika!")
+                        st.success("✅ Uchambuzi wa VIP na Mgawanyo wa Mikeka Umekamilika!")
                         st.markdown(result_text)
+                        
+                        # Kitufe cha kupakua ripoti ya mkeka
+                        st.download_button(
+                            label="📥 Pakua / Nakili Tiketi Hizi (TXT)",
+                            data=result_text,
+                            file_name=f"BetPro_VIP_Ticket_{today_str}.txt",
+                            mime="text/plain"
+                        )
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
 # ================= TAB 2 =================
 with tab2:
-    st.subheader(f"⚽ LiveScores & Ratiba ya Leo ({today_str})")
-    st.write("Fuatilia mechi za leo mubashara. Piga screenshot kwenye sehemu ya mechi unazotaka kisha pakia kwenye Tab ya kwanza:")
-
-    # LiveScore yenye uhakika zaidi ya kufuata muda halisi wa sasa
+    st.subheader(f"⚽ LiveScores & Ratiba ya Leo Mubashara ({today_str})")
+    st.write("Fuatilia mechi za leo, piga screenshot ya orodha unayoitilia shaka kisha weka kwenye Kichambuzi cha VIP:")
     components.html(
         """
         <iframe src="https://www.scorebat.com/embed/livescore/" 
                 frameborder="0" width="100%" height="750" 
-                style="width:100%;height:750px;border:none;border-radius:12px;background:#161f30;">
+                style="width:100%;height:750px;border:none;border-radius:14px;background:#0d1527;">
         </iframe>
         """, 
         height=770, 
