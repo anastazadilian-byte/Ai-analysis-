@@ -25,12 +25,16 @@ if "vip_history" not in st.session_state:
         {"match": "Bologna vs AC Milan", "pick": "Over 1.5 Goals", "status": "WON ✅", "odds": "1.30"},
     ]
 
-# Theme ya Kisasa ya VIP
+# CSS Iliyorekebishwa: Rangi Nyeupe Safi kwenye Chat na Maandishi Yote
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .stApp { background: radial-gradient(circle at 10% 20%, #0d1527 0%, #070a12 90%); color: #e6edf3; }
+    
+    .stApp { 
+        background: #0b1120; 
+        color: #f8fafc; 
+    }
     
     .vip-badge {
         display: inline-block;
@@ -49,14 +53,37 @@ st.markdown("""
     .hero-sub { color: #94a3b8; font-size: 0.95rem; margin-top: 5px; margin-bottom: 25px; }
     
     .vip-card {
-        background: rgba(17, 24, 39, 0.75);
-        border: 1px solid rgba(56, 189, 248, 0.25);
-        backdrop-filter: blur(10px);
+        background: #1e293b;
+        border: 1px solid #334155;
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 15px;
+        color: #ffffff;
     }
     
+    /* Marekebisho ya Chat Input na Messages ili zisiwe giza */
+    .stChatInputContainer textarea {
+        color: #ffffff !important;
+        background-color: #1e293b !important;
+        border: 1px solid #38bdf8 !important;
+        font-size: 1rem !important;
+    }
+    
+    .stChatMessage {
+        background-color: #1e293b !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        color: #ffffff !important;
+        padding: 12px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .stChatMessage p, .stChatMessage span, .stChatMessage div {
+        color: #f1f5f9 !important;
+        font-size: 0.98rem !important;
+        line-height: 1.6 !important;
+    }
+
     .stButton > button {
         background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
         color: white; font-weight: 700; border: none; border-radius: 10px;
@@ -104,7 +131,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("""
-    **🧭 Muongozo wa VIP wa Kuchagua Mechi za Leo:**
+    **🧭 Muongozo wa VIP wa Mechi za Leo:**
     1. Chagua mechi ambazo **bado hazijaanza** (angalia saa).
     2. Epuka timu kubwa zenye mechi ngumu mbele ya safari.
     3. Zingatia timu zenye uhitaji mkubwa wa pointi 3.
@@ -113,12 +140,11 @@ with st.sidebar:
 
 api_key = st.session_state.saved_api_key
 
-# Tabs 4 Kuu Zilizonyooka
 tab1, tab2, tab3, tab4 = st.tabs([
     "📸 Kichambuzi cha Mechi (VIP Slip)", 
     "💬 Muulize Mtaalamu (Football AI Chat)", 
     "🏆 VIP Won Archive (Rekodi ya Tiki)", 
-    "⚽ LiveScores & Ratiba Sahihi"
+    "⚽ LiveScores & Ratiba ya Leo"
 ])
 
 # ================= TAB 1: SCANNER & VIP SLIP =================
@@ -127,7 +153,7 @@ with tab1:
     st.markdown(f"""
     <div class="vip-card">
         <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
-        <p style="margin:0; font-size:0.9rem; color:#94a3b8;">
+        <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
             Pakia picha ya mechi kutoka SportyBet, BetPawa, au FlashScore. 
             AI itakagua H2H, itaondoa mitego, na kukuwekea <b>Tiketi ya Uhakika yenye asilimia 85%+</b>.
         </p>
@@ -177,21 +203,23 @@ with tab1:
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
-# ================= TAB 2: FOOTBALL CHATBOT =================
+# ================= TAB 2: FOOTBALL CHATBOT (RANGI ZILIZOREKEBISHWA) =================
 with tab2:
     st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI (Football Analyst Chat)")
-    st.write("Muulize swali lolote kuhusu soka, vikosi, fomu ya timu, au mechi unazotaka kubetia:")
+    st.write("Muulize swali lolote kuhusu soka, vikosi, fomu ya timu, au ushauri wa kubetia mechi yoyote ya leo:")
 
+    # Onyesha mazungumzo ya awali
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
+            st.write(msg["content"])
 
-    user_question = st.chat_input("Andika swali lako hapa... (Mfano: Nani ana nafasi kubwa kati ya Arsenal na Chelsea leo?)")
+    # Eneo la mtumiaji kuandika swali
+    user_question = st.chat_input("Andika swali lako hapa... (Mfano: Nipe mechi 2 za uhakika za leo)")
 
     if user_question:
         st.session_state.chat_messages.append({"role": "user", "content": user_question})
         with st.chat_message("user"):
-            st.markdown(user_question)
+            st.write(user_question)
 
         if not api_key:
             st.error("Tafadhali weka Gemini API Key kwenye menu ya kushoto kwanza!")
@@ -201,13 +229,13 @@ with tab2:
                     try:
                         client = genai.Client(api_key=api_key)
                         chat_prompt = f"""
-                        Wewe ni Mchambuzi Bingwa wa Soka wa Kiwango cha Kimataifa.
-                        Jibu swali hili la mtumiaji kwa heshima, data za soka, weledi mkubwa na lugha safi ya Kiswahili:
+                        Wewe ni Mchambuzi Bingwa wa Soka wa Kiwango cha Kimataifa (Sports Analyst).
+                        Jibu swali hili la mtumiaji kwa heshima, data halisi za soka, weledi mkubwa na lugha safi ya Kiswahili:
                         Swali: '{user_question}'
-                        Kama anataka ushauri wa kubet, mpe machaguo salama (Double Chance, Goals) na umpe tahadhari ya vihatarishi.
+                        Kama anataka ushauri wa kubet, mpe machaguo salama (Double Chance 1X/X2, Over 1.5) na umpe tahadhari ya vihatarishi.
                         """
                         ans = call_gemini(client, [chat_prompt])
-                        st.markdown(ans)
+                        st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
@@ -221,10 +249,10 @@ with tab3:
         st.markdown(f"""
         <div class="vip-card" style="display:flex; justify-content:space-between; align-items:center;">
             <div>
-                <b style="font-size:1.05rem; color:#f0f6fc;">⚽ {item['match']}</b><br>
+                <b style="font-size:1.05rem; color:#ffffff;">⚽ {item['match']}</b><br>
                 <span style="color:#94a3b8; font-size:0.85rem;">Chaguo: {item['pick']} | Odds: {item['odds']}</span>
             </div>
-            <div style="background:rgba(34,197,94,0.15); border:1px solid #22c55e; color:#4ade80; padding:6px 14px; border-radius:8px; font-weight:800;">
+            <div style="background:rgba(34,197,94,0.2); border:1px solid #22c55e; color:#4ade80; padding:6px 14px; border-radius:8px; font-weight:800;">
                 {item['status']}
             </div>
         </div>
@@ -232,19 +260,18 @@ with tab3:
         
     st.info("💡 Hifadhidata ya VIP inasasishwa kiotomatiki matokeo yanapokamilika.")
 
-# ================= TAB 4: LIVESCORES SAHIHI =================
+# ================= TAB 4: LIVESCORES & RATIBA YA LEO =================
 with tab4:
     today_str = datetime.now().strftime("%d-%m-%Y")
-    st.subheader(f"⚽ LiveScores & Ratiba Sahihi ya Leo ({today_str})")
-    st.write("Kupata ratiba safi ya leo bila mechi za jana zilizopita, tumia LiveScore hii ya kisasa:")
+    st.subheader(f"⚽ LiveScores & Ratiba ya Leo ({today_str})")
+    st.write("Fuatilia matokeo na ratiba ya mechi zinazoanza leo mubashara:")
 
-    # LiveScore iliyosanidiwa kuzuia kubaki kwenye mechi za jana
     components.html(
         """
-        <div style="border-radius:12px; overflow:hidden; border:1px solid #1e293b;">
-            <iframe src="https://www.sofascore.com/football" 
+        <div style="border-radius:12px; overflow:hidden; border:1px solid #334155;">
+            <iframe src="https://www.scorebat.com/embed/livescore/" 
                     frameborder="0" width="100%" height="800" 
-                    style="width:100%;height:800px;border:none;background:#0d1527;">
+                    style="width:100%;height:800px;border:none;background:#1e293b;">
             </iframe>
         </div>
         """, 
