@@ -9,22 +9,24 @@ st.set_page_config(
     page_title="BetPro VIP - AI Intelligence Syndicate",
     page_icon="👑",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Kumbukumbu za Session
-if "saved_api_key" not in st.session_state:
-    st.session_state.saved_api_key = ""
+# KUSOMA API KEY KUTOKA KWENYE MAFUTA YA SIRI (SECRETS) BILA MTU KUJUA
+api_key = st.secrets.get("GEMINI_API_KEY", "")
+
+# Kumbukumbu za Mazungumzo na Historia
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 if "vip_history" not in st.session_state:
     st.session_state.vip_history = [
-        {"match": "Inter Milan vs Venezia", "pick": "Inter Milan Win & Over 1.5", "status": "WON ✅", "odds": "1.35"},
+        {"match": "Arsenal vs Wolves", "pick": "Arsenal 1X & Over 1.5", "status": "WON ✅", "odds": "1.32"},
+        {"match": "Inter Milan vs Venezia", "pick": "Inter Milan Win", "status": "WON ✅", "odds": "1.25"},
         {"match": "Monza vs Napoli", "pick": "Napoli Double Chance (X2)", "status": "WON ✅", "odds": "1.28"},
         {"match": "Bologna vs AC Milan", "pick": "Over 1.5 Goals", "status": "WON ✅", "odds": "1.30"},
     ]
 
-# Theme Safi ya VIP
+# CSS MAALUM YA KUFICHA MANAGE APP, GITHUB, FOOTER NA WATERMARKS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -35,6 +37,30 @@ st.markdown("""
         color: #f8fafc; 
     }
     
+    /* 1. FICHA HEADER YA STREAMLIT, GITHUB ICON NA FORK BUTTON */
+    header[data-testid="stHeader"] {
+        visibility: hidden;
+        height: 0%;
+    }
+    
+    /* 2. FICHA MANAGE APP BUTTON CHINI KULIA NA STREAMLIT BADGES */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .viewerBadge_container__1QSob, 
+    .manageAppContainer, 
+    [data-testid="manage-app-button"], 
+    [class*="manageApp"], 
+    [class*="viewerBadge"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+    
+    /* 3. FICHA KILE KIALAMA CHA DEPLOY AU GITHUB JUU KULIA */
+    .stAppDeployButton {display: none;}
+    
+    /* 4. DESIGN YA KISASA YA VIP */
     .vip-badge {
         display: inline-block;
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -96,7 +122,7 @@ st.markdown('<span class="vip-badge">👑 VIP AI Syndicate</span>', unsafe_allow
 st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo Kamili wa Soka</p>', unsafe_allow_html=True)
 st.markdown('<p class="hero-sub">Scanner ya Mechi, Ushauri wa Maswali Mubashara (Chat AI), na Rekodi ya Ushindi ya VIP.</p>', unsafe_allow_html=True)
 
-# Function ya Haraka Isiyozunguka Muda Mrefu
+# Function ya Kuita Gemini kwa Kasi
 def call_gemini_fast(client, contents):
     try:
         response = client.models.generate_content(
@@ -105,34 +131,11 @@ def call_gemini_fast(client, contents):
         )
         return response.text
     except Exception:
-        # Fallback ya haraka mara moja tu kama ya kwanza ikipata tatizo
         response = client.models.generate_content(
             model="gemini-3.8-flash", 
             contents=contents
         )
         return response.text
-
-# Sidebar
-with st.sidebar:
-    st.markdown("### 👑 VIP Account Settings")
-    input_key = st.text_input(
-        "Gemini API Access Key:", 
-        value=st.session_state.saved_api_key, 
-        type="password",
-        help="Weka API Key yako hapa."
-    )
-    if input_key:
-        st.session_state.saved_api_key = input_key.strip()
-    
-    st.markdown("---")
-    st.markdown("""
-    **🧭 Muongozo wa VIP:**
-    1. Pakia picha yenye kuonekana wazi timu na saa.
-    2. AI itajibu kwa sekunde chache bila kuchelewa.
-    """)
-    st.info("💡 Hali ya Mfumo: **VIP FAST ENGINE ACTIVE**")
-
-api_key = st.session_state.saved_api_key
 
 tab1, tab2, tab3, tab4 = st.tabs([
     "📸 Kichambuzi cha Mechi (VIP Slip)", 
@@ -148,7 +151,7 @@ with tab1:
     <div class="vip-card">
         <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia picha ya mechi. Mfumo utachakata haraka na kukupa <b>Best of the Day & Ticket A/B</b> bila kusubiri muda mrefu.
+            Pakia picha ya mechi. Mfumo wa AI utakagua H2H, utaondoa mitego, na kukupa <b>Best of the Day & Ticket A/B</b> moja kwa moja.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -168,7 +171,6 @@ with tab1:
         )
 
     if uploaded_file is not None:
-        # Punguza ukubwa wa picha kiotomatiki ili isilete lag
         raw_img = Image.open(uploaded_file).convert("RGB")
         max_size = (1024, 1024)
         raw_img.thumbnail(max_size, Image.Resampling.LANCZOS)
@@ -177,7 +179,7 @@ with tab1:
 
         if st.button("🚀 Anza Uchambuzi wa Haraka", key="btn_run_vip"):
             if not api_key:
-                st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto kwanza!")
+                st.error("Hitilafu ya Mfumo: Wasiliana na Utawala kupata ruhusa ya VIP!")
             else:
                 with st.spinner("AI inachakata picha mara moja..."):
                     try:
@@ -203,7 +205,7 @@ with tab1:
 # ================= TAB 2: CHATBOT =================
 with tab2:
     st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI")
-    st.write("Uliza swali kuhusu mechi au dokezo la kubetia:")
+    st.write("Uliza swali kuhusu mechi yoyote au dokezo la ushindi:")
 
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
@@ -217,13 +219,13 @@ with tab2:
             st.write(user_question)
 
         if not api_key:
-            st.error("Weka Gemini API Key kwenye menu ya kushoto kwanza!")
+            st.error("Hitilafu ya Mfumo: Wasiliana na Utawala!")
         else:
             with st.chat_message("assistant"):
                 with st.spinner("Inajibu mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        chat_prompt = f"Wewe ni Mchambuzi wa Soka. Jibu swali hili kwa Kiswahili na weledi mfupi wa moja kwa moja: '{user_question}'"
+                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kwa Kiswahili na weledi mfupi wa moja kwa moja: '{user_question}'"
                         ans = call_gemini_fast(client, [chat_prompt])
                         st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
@@ -233,6 +235,7 @@ with tab2:
 # ================= TAB 3: VIP WON ARCHIVE =================
 with tab3:
     st.subheader("🏆 VIP Won Archive: Historia ya Mechi Zilizoshinda")
+    st.write("Hapa huwekwa rekodi za mechi zilizochambuliwa na matokeo yake:")
     for item in st.session_state.vip_history:
         st.markdown(f"""
         <div class="vip-card" style="display:flex; justify-content:space-between; align-items:center;">
