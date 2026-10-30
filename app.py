@@ -3,7 +3,6 @@ from PIL import Image
 from google import genai
 import streamlit.components.v1 as components
 from datetime import datetime
-import time
 
 # Usanidi wa Ukurasa
 st.set_page_config(
@@ -25,7 +24,7 @@ if "vip_history" not in st.session_state:
         {"match": "Bologna vs AC Milan", "pick": "Over 1.5 Goals", "status": "WON ✅", "odds": "1.30"},
     ]
 
-# CSS Iliyorekebishwa: Rangi Nyeupe Safi kwenye Chat na Maandishi Yote
+# Theme Safi ya VIP
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -61,12 +60,10 @@ st.markdown("""
         color: #ffffff;
     }
     
-    /* Marekebisho ya Chat Input na Messages ili zisiwe giza */
     .stChatInputContainer textarea {
         color: #ffffff !important;
         background-color: #1e293b !important;
         border: 1px solid #38bdf8 !important;
-        font-size: 1rem !important;
     }
     
     .stChatMessage {
@@ -80,8 +77,6 @@ st.markdown("""
     
     .stChatMessage p, .stChatMessage span, .stChatMessage div {
         color: #f1f5f9 !important;
-        font-size: 0.98rem !important;
-        line-height: 1.6 !important;
     }
 
     .stButton > button {
@@ -101,21 +96,21 @@ st.markdown('<span class="vip-badge">👑 VIP AI Syndicate</span>', unsafe_allow
 st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo Kamili wa Soka</p>', unsafe_allow_html=True)
 st.markdown('<p class="hero-sub">Scanner ya Mechi, Ushauri wa Maswali Mubashara (Chat AI), na Rekodi ya Ushindi ya VIP.</p>', unsafe_allow_html=True)
 
-def call_gemini(client, contents):
-    models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.8-flash"]
-    last_error = ""
-    for model_name in models_to_try:
-        for attempt in range(2):
-            try:
-                response = client.models.generate_content(model=model_name, contents=contents)
-                return response.text
-            except Exception as e:
-                last_error = str(e)
-                if "503" in last_error or "UNAVAILABLE" in last_error:
-                    time.sleep(2)
-                    continue
-                break
-    raise Exception(last_error)
+# Function ya Haraka Isiyozunguka Muda Mrefu
+def call_gemini_fast(client, contents):
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash", 
+            contents=contents
+        )
+        return response.text
+    except Exception:
+        # Fallback ya haraka mara moja tu kama ya kwanza ikipata tatizo
+        response = client.models.generate_content(
+            model="gemini-3.8-flash", 
+            contents=contents
+        )
+        return response.text
 
 # Sidebar
 with st.sidebar:
@@ -131,12 +126,11 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("""
-    **🧭 Muongozo wa VIP wa Mechi za Leo:**
-    1. Chagua mechi ambazo **bado hazijaanza** (angalia saa).
-    2. Epuka timu kubwa zenye mechi ngumu mbele ya safari.
-    3. Zingatia timu zenye uhitaji mkubwa wa pointi 3.
+    **🧭 Muongozo wa VIP:**
+    1. Pakia picha yenye kuonekana wazi timu na saa.
+    2. AI itajibu kwa sekunde chache bila kuchelewa.
     """)
-    st.info("💡 Hali ya Mfumo: **VIP PREMIUM ACTIVE**")
+    st.info("💡 Hali ya Mfumo: **VIP FAST ENGINE ACTIVE**")
 
 api_key = st.session_state.saved_api_key
 
@@ -147,15 +141,14 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: SCANNER & VIP SLIP =================
+# ================= TAB 1: SCANNER =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="vip-card">
         <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia picha ya mechi kutoka SportyBet, BetPawa, au FlashScore. 
-            AI itakagua H2H, itaondoa mitego, na kukuwekea <b>Tiketi ya Uhakika yenye asilimia 85%+</b>.
+            Pakia picha ya mechi. Mfumo utachakata haraka na kukupa <b>Best of the Day & Ticket A/B</b> bila kusubiri muda mrefu.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -175,46 +168,48 @@ with tab1:
         )
 
     if uploaded_file is not None:
-        img = Image.open(uploaded_file).convert("RGB")
-        st.image(img, caption="Screenshot Uliyopakia", use_container_width=True)
+        # Punguza ukubwa wa picha kiotomatiki ili isilete lag
+        raw_img = Image.open(uploaded_file).convert("RGB")
+        max_size = (1024, 1024)
+        raw_img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        
+        st.image(raw_img, caption="Screenshot Tayari kwa Uchambuzi", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi wa VIP", key="btn_run_vip"):
+        if st.button("🚀 Anza Uchambuzi wa Haraka", key="btn_run_vip"):
             if not api_key:
                 st.error("Tafadhali weka Gemini API Key yako kwenye menu ya kushoto kwanza!")
             else:
-                with st.spinner("AI inasoma mechi, inachunguza H2H na kuondoa mechi zilizochezwa..."):
+                with st.spinner("AI inachakata picha mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Meneja wa Mikeka ya VIP.
-                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji ni: '{user_stake}'. Mfumo: '{target_mode}'.
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (VIP Betting Manager).
+                        Leo ni tarehe {today_str}. Mtaji: '{user_stake}'. Mfumo: '{target_mode}'.
 
                         KAZI YAKO:
-                        1. ONDOA KABISA mechi yoyote iliyokwisha chezwa, iliyoisha (Full Time), au ya jana. Tumia mechi za leo ZISIZOANZA TU!
-                        2. Taja kama kuna mtego wa odds (Trap Alert).
-                        3. BEST OF THE DAY (Uhakika 85%+): Mechi 2 hadi 4 bora zenye H2H imara na motisha ya pointi 3.
-                        4. UGAWAJI WA MTAJI: Panga jinsi ya kugawanya mtaji wa {user_stake} kwenye Ticket A (Safe 2 Odds - 70%) na Ticket B (Multiplier - 30%).
+                        1. ONDOA mechi zilizokwisha chezwa au zilizoanza. Tumia mechi zijazo za leo pekee.
+                        2. BEST OF THE DAY (Uhakika 85%+): Mechi 2 hadi 4 bora zenye H2H thabiti na motisha ya pointi.
+                        3. TRAP ALERT: Taja timu kubwa yenye mtego wa kuepuka.
+                        4. UGAWAJI WA MTAJI: Gawanya {user_stake} kwenye Ticket A (70%) na Ticket B (30%).
 
-                        Toa ripoti nzima kwa Kiswahili chenye heshima na mpangilio safi wa kitaalamu.
+                        Jibu kwa Kiswahili chenye mpangilio safi na mfupi wa moja kwa moja.
                         """
-                        result_text = call_gemini(client, [prompt, img])
+                        result_text = call_gemini_fast(client, [prompt, raw_img])
                         st.success("✅ Uchambuzi Umekamilika!")
                         st.markdown(result_text)
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
-# ================= TAB 2: FOOTBALL CHATBOT (RANGI ZILIZOREKEBISHWA) =================
+# ================= TAB 2: CHATBOT =================
 with tab2:
-    st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI (Football Analyst Chat)")
-    st.write("Muulize swali lolote kuhusu soka, vikosi, fomu ya timu, au ushauri wa kubetia mechi yoyote ya leo:")
+    st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI")
+    st.write("Uliza swali kuhusu mechi au dokezo la kubetia:")
 
-    # Onyesha mazungumzo ya awali
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    # Eneo la mtumiaji kuandika swali
-    user_question = st.chat_input("Andika swali lako hapa... (Mfano: Nipe mechi 2 za uhakika za leo)")
+    user_question = st.chat_input("Andika swali lako hapa...")
 
     if user_question:
         st.session_state.chat_messages.append({"role": "user", "content": user_question})
@@ -222,19 +217,14 @@ with tab2:
             st.write(user_question)
 
         if not api_key:
-            st.error("Tafadhali weka Gemini API Key kwenye menu ya kushoto kwanza!")
+            st.error("Weka Gemini API Key kwenye menu ya kushoto kwanza!")
         else:
             with st.chat_message("assistant"):
-                with st.spinner("Mtaalamu wa Soka anajibu..."):
+                with st.spinner("Inajibu mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        chat_prompt = f"""
-                        Wewe ni Mchambuzi Bingwa wa Soka wa Kiwango cha Kimataifa (Sports Analyst).
-                        Jibu swali hili la mtumiaji kwa heshima, data halisi za soka, weledi mkubwa na lugha safi ya Kiswahili:
-                        Swali: '{user_question}'
-                        Kama anataka ushauri wa kubet, mpe machaguo salama (Double Chance 1X/X2, Over 1.5) na umpe tahadhari ya vihatarishi.
-                        """
-                        ans = call_gemini(client, [chat_prompt])
+                        chat_prompt = f"Wewe ni Mchambuzi wa Soka. Jibu swali hili kwa Kiswahili na weledi mfupi wa moja kwa moja: '{user_question}'"
+                        ans = call_gemini_fast(client, [chat_prompt])
                         st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
                     except Exception as e:
@@ -243,8 +233,6 @@ with tab2:
 # ================= TAB 3: VIP WON ARCHIVE =================
 with tab3:
     st.subheader("🏆 VIP Won Archive: Historia ya Mechi Zilizoshinda")
-    st.write("Hapa huwekwa matokeo ya mechi zilizochambuliwa na hadhi yake (WON ✅):")
-
     for item in st.session_state.vip_history:
         st.markdown(f"""
         <div class="vip-card" style="display:flex; justify-content:space-between; align-items:center;">
@@ -257,15 +245,11 @@ with tab3:
             </div>
         </div>
         """, unsafe_allow_html=True)
-        
-    st.info("💡 Hifadhidata ya VIP inasasishwa kiotomatiki matokeo yanapokamilika.")
 
-# ================= TAB 4: LIVESCORES & RATIBA YA LEO =================
+# ================= TAB 4: LIVESCORES =================
 with tab4:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.subheader(f"⚽ LiveScores & Ratiba ya Leo ({today_str})")
-    st.write("Fuatilia matokeo na ratiba ya mechi zinazoanza leo mubashara:")
-
     components.html(
         """
         <div style="border-radius:12px; overflow:hidden; border:1px solid #334155;">
