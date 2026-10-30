@@ -12,21 +12,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# KUSOMA API KEY KUTOKA KWENYE MAFUTA YA SIRI (SECRETS) BILA MTU KUJUA
+# KUSOMA API KEY KUTOKA KWENYE SECRETS
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Kumbukumbu za Mazungumzo na Historia
+# Kumbukumbu za Mazungumzo na VIP Archive Halisi
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 if "vip_history" not in st.session_state:
-    st.session_state.vip_history = [
-        {"match": "Arsenal vs Wolves", "pick": "Arsenal 1X & Over 1.5", "status": "WON ✅", "odds": "1.32"},
-        {"match": "Inter Milan vs Venezia", "pick": "Inter Milan Win", "status": "WON ✅", "odds": "1.25"},
-        {"match": "Monza vs Napoli", "pick": "Napoli Double Chance (X2)", "status": "WON ✅", "odds": "1.28"},
-        {"match": "Bologna vs AC Milan", "pick": "Over 1.5 Goals", "status": "WON ✅", "odds": "1.30"},
-    ]
+    st.session_state.vip_history = []
 
-# CSS MAALUM YA KUFICHA MANAGE APP, GITHUB, FOOTER NA WATERMARKS
+# CSS YA KISASA YA KUFICHA MENYU NA HEADER
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -37,30 +32,12 @@ st.markdown("""
         color: #f8fafc; 
     }
     
-    /* 1. FICHA HEADER YA STREAMLIT, GITHUB ICON NA FORK BUTTON */
-    header[data-testid="stHeader"] {
-        visibility: hidden;
-        height: 0%;
-    }
+    /* Ficha Header na Alama za Streamlit */
+    header[data-testid="stHeader"] { visibility: hidden; height: 0%; }
+    #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
+    .stAppDeployButton { display: none; }
     
-    /* 2. FICHA MANAGE APP BUTTON CHINI KULIA NA STREAMLIT BADGES */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .viewerBadge_container__1QSob, 
-    .manageAppContainer, 
-    [data-testid="manage-app-button"], 
-    [class*="manageApp"], 
-    [class*="viewerBadge"] {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-    
-    /* 3. FICHA KILE KIALAMA CHA DEPLOY AU GITHUB JUU KULIA */
-    .stAppDeployButton {display: none;}
-    
-    /* 4. DESIGN YA KISASA YA VIP */
     .vip-badge {
         display: inline-block;
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -100,10 +77,6 @@ st.markdown("""
         padding: 12px !important;
         margin-bottom: 10px !important;
     }
-    
-    .stChatMessage p, .stChatMessage span, .stChatMessage div {
-        color: #f1f5f9 !important;
-    }
 
     .stButton > button {
         background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
@@ -122,7 +95,6 @@ st.markdown('<span class="vip-badge">👑 VIP AI Syndicate</span>', unsafe_allow
 st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo Kamili wa Soka</p>', unsafe_allow_html=True)
 st.markdown('<p class="hero-sub">Scanner ya Mechi, Ushauri wa Maswali Mubashara (Chat AI), na Rekodi ya Ushindi ya VIP.</p>', unsafe_allow_html=True)
 
-# Function ya Kuita Gemini kwa Kasi
 def call_gemini_fast(client, contents):
     try:
         response = client.models.generate_content(
@@ -140,7 +112,7 @@ def call_gemini_fast(client, contents):
 tab1, tab2, tab3, tab4 = st.tabs([
     "📸 Kichambuzi cha Mechi (VIP Slip)", 
     "💬 Muulize Mtaalamu (Football AI Chat)", 
-    "🏆 VIP Won Archive (Rekodi ya Tiki)", 
+    "🏆 VIP Won Archive (Rekodi Halisi)", 
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
@@ -151,7 +123,7 @@ with tab1:
     <div class="vip-card">
         <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia picha ya mechi. Mfumo wa AI utakagua H2H, utaondoa mitego, na kukupa <b>Best of the Day & Ticket A/B</b> moja kwa moja.
+            Pakia picha ya mechi. Mfumo utakagua H2H, utaondoa mitego, na kukupa <b>Best of the Day & Ticket A/B</b>.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -179,7 +151,7 @@ with tab1:
 
         if st.button("🚀 Anza Uchambuzi wa Haraka", key="btn_run_vip"):
             if not api_key:
-                st.error("Hitilafu ya Mfumo: Wasiliana na Utawala kupata ruhusa ya VIP!")
+                st.error("Hitilafu: Weka GEMINI_API_KEY kwenye Secrets za Streamlit!")
             else:
                 with st.spinner("AI inachakata picha mara moja..."):
                     try:
@@ -197,6 +169,7 @@ with tab1:
                         Jibu kwa Kiswahili chenye mpangilio safi na mfupi wa moja kwa moja.
                         """
                         result_text = call_gemini_fast(client, [prompt, raw_img])
+                        st.session_state.last_analysis = result_text
                         st.success("✅ Uchambuzi Umekamilika!")
                         st.markdown(result_text)
                     except Exception as e:
@@ -205,7 +178,7 @@ with tab1:
 # ================= TAB 2: CHATBOT =================
 with tab2:
     st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI")
-    st.write("Uliza swali kuhusu mechi yoyote au dokezo la ushindi:")
+    st.write("Uliza swali kuhusu mechi au dokezo la ushindi:")
 
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
@@ -219,35 +192,60 @@ with tab2:
             st.write(user_question)
 
         if not api_key:
-            st.error("Hitilafu ya Mfumo: Wasiliana na Utawala!")
+            st.error("Hitilafu: Weka GEMINI_API_KEY kwenye Secrets!")
         else:
             with st.chat_message("assistant"):
                 with st.spinner("Inajibu mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kwa Kiswahili na weledi mfupi wa moja kwa moja: '{user_question}'"
+                        chat_prompt = f"Wewe ni Mchambuzi wa Soka. Jibu swali hili kwa Kiswahili na weledi mfupi wa moja kwa moja: '{user_question}'"
                         ans = call_gemini_fast(client, [chat_prompt])
                         st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
-# ================= TAB 3: VIP WON ARCHIVE =================
+# ================= TAB 3: VIP WON ARCHIVE (HALISI BILA UONGO) =================
 with tab3:
-    st.subheader("🏆 VIP Won Archive: Historia ya Mechi Zilizoshinda")
-    st.write("Hapa huwekwa rekodi za mechi zilizochambuliwa na matokeo yake:")
-    for item in st.session_state.vip_history:
-        st.markdown(f"""
-        <div class="vip-card" style="display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <b style="font-size:1.05rem; color:#ffffff;">⚽ {item['match']}</b><br>
-                <span style="color:#94a3b8; font-size:0.85rem;">Chaguo: {item['pick']} | Odds: {item['odds']}</span>
+    st.subheader("🏆 VIP Won Archive: Historia Halisi ya Mechi Zilizoshinda")
+    st.write("Rekodi rasmi za mechi za uhakika zilizothibitishwa baada ya mechi kukamilika:")
+
+    # Kama hakuna mechi bado
+    if not st.session_state.vip_history:
+        st.info("ℹ️ Bado hakuna mechi zilizoongezwa kwenye historia rasmi. Unaweza kuongeza mechi zilizoshinda hapa chini ili wateja wazione!")
+    else:
+        for item in st.session_state.vip_history:
+            st.markdown(f"""
+            <div class="vip-card" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <b style="font-size:1.05rem; color:#ffffff;">⚽ {item['match']}</b><br>
+                    <span style="color:#94a3b8; font-size:0.85rem;">Tarehe: {item['date']} | Chaguo: {item['pick']} | Odds: {item['odds']}</span>
+                </div>
+                <div style="background:rgba(34,197,94,0.2); border:1px solid #22c55e; color:#4ade80; padding:6px 14px; border-radius:8px; font-weight:800;">
+                    {item['status']}
+                </div>
             </div>
-            <div style="background:rgba(34,197,94,0.2); border:1px solid #22c55e; color:#4ade80; padding:6px 14px; border-radius:8px; font-weight:800;">
-                {item['status']}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+
+    # Sehemu ya Admin kuongeza mechi halisi iliyoshinda
+    st.markdown("---")
+    with st.expander("➕ Ongeza Mechi Iliyoshinda Kwenye Archive (Admin Panel)"):
+        with st.form("add_won_match"):
+            m_name = st.text_input("Jina la Mechi (Mfano: Real Madrid vs Osasuna)")
+            m_pick = st.text_input("Chaguo Lililoshinda (Mfano: Real Madrid Win & Over 1.5)")
+            m_odds = st.text_input("Odds (Mfano: 1.45)", value="1.40")
+            submit_won = st.form_submit_button("Hifadhi Mechi Hii Kama WON ✅")
+            
+            if submit_won and m_name and m_pick:
+                st.session_state.vip_history.append({
+                    "match": m_name,
+                    "pick": m_pick,
+                    "odds": m_odds,
+                    "status": "WON ✅",
+                    "date": datetime.now().strftime("%d-%m-%Y")
+                })
+                st.success(f"Mechi ya {m_name} imeongezwa kikamilifu kwenye VIP Won Archive!")
+                st.rerun()
 
 # ================= TAB 4: LIVESCORES =================
 with tab4:
