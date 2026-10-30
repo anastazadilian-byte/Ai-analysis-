@@ -15,7 +15,7 @@ st.set_page_config(
 # KUSOMA API KEY KUTOKA KWENYE SECRETS
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Kumbukumbu za Mazungumzo na Kumbukumbu ya Correct Score
+# Kumbukumbu za Mazungumzo na Correct Score History
 if "chat_messages" not in st.session_state:
     st.session_state.chat_messages = []
 if "cs_history" not in st.session_state:
@@ -95,7 +95,7 @@ st.markdown("""
 
 st.markdown('<span class="vip-badge">👑 VIP AI Syndicate</span>', unsafe_allow_html=True)
 st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo Kamili wa Soka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Scanner ya Mechi, Ushauri wa Maswali (Chat AI), na Jenereta ya Correct Score Zenye Rekodi za Uhakika.</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Kikokotozi cha Uhakika: Tiketi 1 (Safe 2 Odds), Tiketi 2 (Multiplier), na Tiketi 3 (Correct Score Mechi 2 Tu).</p>', unsafe_allow_html=True)
 
 def call_gemini_fast(client, contents):
     try:
@@ -112,20 +112,21 @@ def call_gemini_fast(client, contents):
         return response.text
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📸 Kichambuzi cha Mechi (VIP Slip & Correct Score)", 
+    "📸 Kichambuzi cha Mechi (Mikeka 3 ya VIP)", 
     "🎯 Correct Score Vault (Rekodi za Jana/Leo)", 
     "💬 Muulize Mtaalamu (Football AI Chat)", 
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: SCANNER =================
+# ================= TAB 1: SCANNER & 3 TICKETS =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="vip-card">
         <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia picha ya mechi. Mfumo utakagua H2H, utachuja mitego, na <b>kuteua mechi 2 bora pekee zenye uwezekano wa kutoa Correct Score</b> pamoja na Ticket A/B.
+            Pakia picha ya mechi unazotaka kubetia. AI itazikagua zote, itaondoa mitego, na kuzigawa katika: 
+            <b>Tiketi 1 (Safe 2 Odds)</b>, <b>Tiketi 2 (Multiplier)</b>, na <b>Tiketi 3 (Correct Score Mechi 2 Tu)</b> pamoja na mgao sahihi wa mtaji ili usipoteze pesa.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -134,15 +135,7 @@ with tab1:
     with col1:
         uploaded_file = st.file_uploader("Pakia Screenshot ya Mechi:", type=["png", "jpg", "jpeg"], key="vip_uploader")
     with col2:
-        user_stake = st.text_input("Mtaji Wako wa Leo:", value="TZS 20,000")
-        target_mode = st.selectbox(
-            "Chagua Mfumo wa Uchambuzi:",
-            [
-                "👑 VIP Suite Kamili (Best of Day + Mechi 2 za Correct Score + Mtaji)",
-                "🎯 Correct Score Pekee (Mechi 2 Bora za Matokeo Kamili)",
-                "🔥 Sure 2 Odds Pekee (Mechi Salama za Kulinda Mtaji)"
-            ]
-        )
+        user_stake = st.text_input("Mtaji Wako wa Leo (Mfano: TZS 10,000 au TZS 30,000):", value="TZS 20,000")
 
     if uploaded_file is not None:
         raw_img = Image.open(uploaded_file).convert("RGB")
@@ -151,35 +144,47 @@ with tab1:
         
         st.image(raw_img, caption="Screenshot Tayari kwa Uchambuzi", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi wa Kina na Correct Score", key="btn_run_vip"):
+        if st.button("🚀 Anza Uchambuzi wa Uhakika (Tengeneza Mikeka 3)", key="btn_run_vip"):
             if not api_key:
                 st.error("Hitilafu: Weka GEMINI_API_KEY kwenye Secrets za Streamlit!")
             else:
-                with st.spinner("AI inachambua H2H, xG ya timu zote na kupiga hesabu ya Correct Score..."):
+                with st.spinner("AI inachambua takwimu halisi, H2H, na kuandaa Mikeka 3 ya kulinda mtaji..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (VIP Correct Score & Risk Analyst).
-                        Leo ni tarehe {today_str}. Mtaji: '{user_stake}'. Mfumo: '{target_mode}'.
-
-                        KAZI YAKO KWENYE PICHA HII:
-                        1. ONDOA mechi zilizokwisha chezwa au zilizoanza. Tumia mechi zijazo za leo pekee.
-                        2. BEST OF THE DAY (Uhakika 85%+): Mechi 2 hadi 4 bora zenye H2H thabiti.
+                        Wewe ni Mkuu wa Kitengo cha Kudhibiti Upotevu wa Pesa kwenye Kubashiri (Senior Risk & Betting Manager).
+                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji kwa leo ni: '{user_stake}'.
                         
-                        3. 🎯 UCHAMBUZI WA CORRECT SCORE (MECHI 2 BORA ZA LEO):
-                           - Kutoka kwenye mechi zote za picha, chagua MECHI 2 TU zenye uwezekano mkubwa zaidi wa kutoa matokeo kamili (Correct Score).
-                           - Kwa kila mechi taja:
-                             a) Matokeo Kamili Makuu (Primary Expected Score - mfano 2-0 au 2-1).
-                             b) Matokeo Mbadala ya Kinga (Cover Score - mfano 1-0 au 1-1).
-                             c) Sababu za kiufundi za safu ya ulinzi na ufungaji wa magoli (xG).
-                             d) Makadirio ya Odds (mfano Odds 6.50 hadi 9.00).
+                        KANUNI KUU YA MTUMIAJI: "HATAKI KUPOTEZA PESA, ANATAKA KULINDA MTAJI NA KUPATA FAIDA NDOGO NDOGO YA UHAKIKA."
 
-                        4. UGAWAJI WA MTAJI KWA {user_stake}: Panga mgao wa pesa kwa tiketi salama na Correct Score.
+                        KAZI YAKO KWENYE SCREENSHOT HII:
+                        1. ONDOA KABISA mechi yoyote iliyokwisha chezwa au ya jana. Tumia mechi za leo ambazo HAZIJAANZA tu.
+                        2. ONDOA MITEGO YA WAZI (TRAP ALERT): Taja timu yoyote kubwa kwenye picha ambayo ina mtego wa kutoa sare au kufungwa.
+                        
+                        3. TENGENEZA MIKEKA MITATU (3 SMART SLIPS):
+                        
+                           🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2 ODDS - UHAKIKA 90%+):**
+                           - Chagua mechi 2 tu salama kabisa (mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
+                           - Lengo: Hii tiketi ndiyo ya uhakika wa kulinda mtaji.
 
-                        Jibu kwa Kiswahili chenye mpangilio safi, nambari na kadi za kusomeka wazi.
+                           🚀 **TIKETI 2: TIKETI YA FAIDA (MULTIPLIER - ODDS 3.50 HADI 5.00):**
+                           - Chagua mechi 3 zenye faida nzuri lakini zilizolindwa vizuri (mfano: Over 2.5 au Win Either Half).
+                           - Lengo: Kukuza mtaji taratibu.
+
+                           🎯 **TIKETI 3: VIP CORRECT SCORE (MECHI 2 TU BASI!):**
+                           - Kutoka mechi zote za picha, teua MECHI 2 TU zenye uwezekano mkubwa zaidi wa kutoa matokeo kamili.
+                           - Kwa kila mechi taja Matokeo Makuu (mfano 2-0 au 2-1) na Matokeo Mbadala ya Kinga (mfano 1-0 au 1-1).
+
+                        4. 💰 **MGAO WA PESA KISAYANSI (KWA MTAJI WA {user_stake}):**
+                           - Piga hesabu ya pesa halisi ya kuweka kwenye TIKETI 1 (Weka 70% ya mtaji).
+                           - Piga hesabu ya pesa halisi ya kuweka kwenye TIKETI 2 (Weka 20% ya mtaji).
+                           - Piga hesabu ya pesa halisi ya kuweka kwenye TIKETI 3 (Weka 10% tu ya mtaji kwenye Correct Score).
+                           - Eleza kwanini hata Tiketi 2 na 3 zikikosa, Tiketi 1 pekee itarudisha mtaji wote pamoja na faida!
+
+                        Toa majibu kwa Kiswahili fasaha, nambari na mpangilio safi wa kitaalamu.
                         """
                         result_text = call_gemini_fast(client, [prompt, raw_img])
-                        st.success("✅ Uchambuzi na Correct Score Zimekamilika!")
+                        st.success("✅ Uchambuzi na Mikeka 3 ya Uhakika Imekamilika!")
                         st.markdown(result_text)
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
@@ -187,9 +192,8 @@ with tab1:
 # ================= TAB 2: CORRECT SCORE VAULT =================
 with tab2:
     st.subheader("🎯 VIP Correct Score Vault: Rekodi za Jana na Leo")
-    st.write("Fuatilia mechi za Correct Score zilizotabiriwa na uone kama **ZILITOA ✅** au **ZILICHANA ❌**:")
+    st.write("Fuatilia mechi 2 za Correct Score zilizotabiriwa na uone matokeo halisi kama **ZILITOA ✅** au **ZILICHANA ❌**:")
 
-    # Orodha ya Historia
     for item in st.session_state.cs_history:
         is_won = "WON" in item["status"]
         status_bg = "rgba(34,197,94,0.2)" if is_won else "rgba(239,68,68,0.2)"
@@ -211,12 +215,11 @@ with tab2:
         </div>
         """, unsafe_allow_html=True)
 
-    # Sehemu ya Admin Kusajili Mechi za Correct Score (Kuweka kama Ilitoa au Ilichana)
     st.markdown("---")
     with st.expander("⚙️ Admin Panel: Sajili Matokeo ya Correct Score ya Jana"):
         with st.form("cs_form"):
             c_date = st.text_input("Tarehe ya Mechi", value=datetime.now().strftime("%d-%m-%Y"))
-            c_match = st.text_input("Jina la Mechi (Mfano: Arsenal vs Wolves)")
+            c_match = st.text_input("Jina la Mechi (Mfano: Real Madrid vs Osasuna)")
             c_pred = st.text_input("Score Iliyotabiriwa (Mfano: 2 - 0)")
             c_act = st.text_input("Matokeo Halisi Yalivyotoka (Mfano: 2 - 0)")
             c_odds = st.text_input("Odds (Mfano: 7.50)", value="7.00")
@@ -238,13 +241,13 @@ with tab2:
 # ================= TAB 3: CHATBOT =================
 with tab3:
     st.subheader("💬 Ongea na Mtaalamu wa Soka wa AI")
-    st.write("Uliza swali kuhusu mechi au dokezo la Correct Score:")
+    st.write("Uliza swali kuhusu mechi au dokezo la soka:")
 
     for msg in st.session_state.chat_messages:
         with st.chat_message(msg["role"]):
             st.write(msg["content"])
 
-    user_question = st.chat_input("Andika swali lako hapa... (Mfano: Ni mechi gani ya leo ina nafasi ya kuisha 1-1?)")
+    user_question = st.chat_input("Andika swali lako hapa...")
 
     if user_question:
         st.session_state.chat_messages.append({"role": "user", "content": user_question})
@@ -258,7 +261,7 @@ with tab3:
                 with st.spinner("Inajibu mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kuhusu soka au Correct Score kwa Kiswahili na weledi: '{user_question}'"
+                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kwa Kiswahili na weledi: '{user_question}'"
                         ans = call_gemini_fast(client, [chat_prompt])
                         st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
