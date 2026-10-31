@@ -1,10 +1,11 @@
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageFilter
 from google import genai
 import streamlit.components.v1 as components
 from datetime import datetime
 import io
-import textwrap
+import json
+import re
 
 # Usanidi wa Ukurasa wa Kipekee
 st.set_page_config(
@@ -24,7 +25,7 @@ st.markdown("""
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     
     .stApp { 
-        background: #0b1120; 
+        background: #080d1a; 
         color: #f8fafc; 
     }
     
@@ -50,8 +51,8 @@ st.markdown("""
     .hero-sub { color: #94a3b8; font-size: 0.95rem; margin-top: 5px; margin-bottom: 25px; }
     
     .box-card {
-        background: #1e293b;
-        border: 1px solid #334155;
+        background: #131d31;
+        border: 1px solid #1e293b;
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 15px;
@@ -72,8 +73,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<span class="elite-badge">⚡ PRIVATE TACTICAL TERMINAL</span>', unsafe_allow_html=True)
-st.markdown('<p class="hero-title">BetPro Elite: Jicho la Kijasusi & Jenereta ya Picha za Mikeka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Inachambua mechi na kutoa BANGO LA PICHA (PNG) lenye picha yako nyuma tayari kupostiwa WhatsApp Status na Facebook.</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-title">BetPro Elite: Jenereta ya Kadi za Kisasa za Mikeka</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Mitindo mipya ya kadi safi za picha (Graphic Slips) tayari kupakuliwa na kupostiwa mtandaoni.</p>', unsafe_allow_html=True)
 
 # Function ya Kuita AI kwa Kasi
 def call_gemini_fast(client, contents):
@@ -90,81 +91,107 @@ def call_gemini_fast(client, contents):
         )
         return response.text
 
-# Function ya Kutengeneza Picha ya Mkeka (Poster Generator yenye Background)
-def create_slip_poster(text_content, bg_image=None):
-    width, height = 1080, 1920  # Muundo wa WhatsApp Status & Story
+# MTINDO MPYA WA KUCHORA KADI YA TIKETI (GRAPHIC SLIP GENERATOR)
+def draw_modern_slip_card(data_dict, bg_image=None):
+    width = 1080
+    # Hesabu urefu kulingana na idadi ya mechi
+    matches = data_dict.get("matches", [])
+    num_matches = len(matches)
+    card_h = 135
+    height = max(1350, 420 + (num_matches * (card_h + 20)) + 150)
     
+    # 1. Background
     if bg_image:
-        # Punguza mwangaza wa picha yako ili maandishi yasomeke wazi
         poster = bg_image.convert("RGBA").resize((width, height), Image.Resampling.LANCZOS)
+        poster = poster.filter(ImageFilter.GaussianBlur(radius=3))
         enhancer = ImageEnhance.Brightness(poster)
-        poster = enhancer.enhance(0.25)  # Fanya iwe na giza la asilimia 75%
+        poster = enhancer.enhance(0.22)  # Fanya giza ili maandishi yang'ae
     else:
-        # Kama hakuweka picha, tumia background ya giza ya kisasa
-        poster = Image.new("RGBA", (width, height), color=(11, 17, 32, 255))
+        poster = Image.new("RGBA", (width, height), color=(10, 15, 28, 255))
         
     draw = ImageDraw.Draw(poster)
     
-    # Mistari na Kichwa
-    draw.rectangle([(40, 40), (width - 40, height - 40)], outline=(56, 189, 248, 180), width=4)
-    draw.rectangle([(50, 50), (width - 50, 200)], fill=(30, 41, 59, 220))
-    
-    # Jaribu kupata font, vinginevyo tumia default
+    # Fonts
     try:
-        font_header = ImageFont.truetype("DejaVuSans-Bold.ttf", 52)
-        font_sub = ImageFont.truetype("DejaVuSans-Bold.ttf", 32)
-        font_body = ImageFont.truetype("DejaVuSans.ttf", 26)
+        f_title = ImageFont.truetype("DejaVuSans-Bold.ttf", 46)
+        f_sub = ImageFont.truetype("DejaVuSans-Bold.ttf", 24)
+        f_match = ImageFont.truetype("DejaVuSans-Bold.ttf", 30)
+        f_pick = ImageFont.truetype("DejaVuSans-Bold.ttf", 26)
+        f_badge = ImageFont.truetype("DejaVuSans-Bold.ttf", 20)
+        f_small = ImageFont.truetype("DejaVuSans.ttf", 20)
     except:
-        font_header = ImageFont.load_default()
-        font_sub = ImageFont.load_default()
-        font_body = ImageFont.load_default()
+        f_title = f_sub = f_match = f_pick = f_badge = f_small = ImageFont.load_default()
 
-    draw.text((70, 75), "⚡ BETPRO ELITE SYNDICATE", fill=(56, 189, 248), font=font_header)
-    draw.text((70, 140), f"📅 RATIBA YA LEO: {datetime.now().strftime('%d-%m-%Y')} | VIP SLIP", fill=(245, 158, 11), font=font_sub)
+    # 2. Header ya Bango
+    draw.rounded_rectangle([(40, 40), (width - 40, 210)], radius=18, fill=(19, 29, 49, 230), outline=(56, 189, 248), width=2)
+    draw.text((70, 65), "⚡ BETPRO ELITE VIP SLIP", fill=(56, 189, 248), font=f_title)
     
-    # Andika ujumbe wa mechi
-    y_text = 240
-    lines = text_content.split("\n")
-    for line in lines:
-        if y_text > height - 120:
-            break
-        wrapped = textwrap.wrap(line, width=55)
-        for w in wrapped:
-            if any(k in w for k in ["TIKETI", "TRENI", "SAFE", "ODDS", "CORRECT"]):
-                color = (56, 189, 248)  # Bluu inayong'aa
-            elif "✅" in w or "WON" in w or "95%" in w:
-                color = (74, 222, 128)  # Kijani
-            elif "⚠️" in w or "TRAP" in w:
-                color = (248, 113, 113)  # Nyekundu
-            else:
-                color = (241, 245, 249)  # Nyeupe safi
-                
-            draw.text((70, y_text), w, fill=color, font=font_body)
-            y_text += 36
-        y_text += 8
+    today_date = datetime.now().strftime("%d-%m-%Y")
+    slip_type = data_dict.get("title", "TACTICAL SELECTION").upper()
+    tot_odds = data_dict.get("total_odds", "~2.00")
+    
+    draw.text((70, 140), f"📅 {today_date}  |  🎯 {slip_type}  |  🔥 TOTAL ODDS: {tot_odds}", fill=(245, 158, 11), font=f_sub)
 
-    # Watermark chini
-    draw.text((width // 2 - 180, height - 85), "👑 BETPRO TACTICAL ANALYST", fill=(148, 163, 184), font=font_sub)
+    # 3. Kadi za Mechi Moja Moja
+    y = 240
+    for idx, m in enumerate(matches):
+        team_text = f"{idx+1}. {m.get('teams', 'Team vs Team')}"
+        pick_text = f"👉 CHAGUO: {m.get('pick', '1X')}"
+        conf = m.get('confidence', '90%')
+        odds_val = m.get('odds', '1.30')
+        reason = m.get('reason', '')
+        
+        # Sanduku la Mechi
+        box_top = y
+        box_bottom = y + card_h
+        draw.rounded_rectangle([(40, box_top), (width - 40, box_bottom)], radius=14, fill=(15, 23, 42, 220), outline=(51, 65, 85), width=2)
+        
+        # Mstari wa rangi ya neon kushoto mwa kadi
+        draw.rounded_rectangle([(40, box_top), (50, box_bottom)], radius=4, fill=(14, 165, 233))
+        
+        # Majina ya Timu
+        draw.text((70, box_top + 18), team_text, fill=(255, 255, 255), font=f_match)
+        
+        # Chaguo (Pick)
+        draw.text((70, box_top + 60), pick_text, fill=(56, 189, 248), font=f_pick)
+        
+        # Sababu fupi
+        if reason:
+            draw.text((70, box_top + 98), f"💡 {reason[:65]}...", fill=(148, 163, 184), font=f_small)
 
-    # Convert kwenda byte array kwa ajili ya kupakua
+        # Beji ya Odds & Confidence (Upande wa Kulia)
+        badge_x = width - 230
+        draw.rounded_rectangle([(badge_x, box_top + 22), (width - 65, box_top + 65)], radius=8, fill=(16, 185, 129, 40), outline=(16, 185, 129), width=2)
+        draw.text((badge_x + 18, box_top + 32), f"ODDS: {odds_val}", fill=(74, 222, 128), font=f_badge)
+        
+        draw.text((badge_x + 18, box_top + 78), f"🛡️ {conf} SAFE", fill=(245, 158, 11), font=f_small)
+        
+        y += card_h + 16
+
+    # 4. Footer ya Bango
+    y += 10
+    draw.rounded_rectangle([(40, y), (width - 40, y + 80)], radius=12, fill=(19, 29, 49, 200), outline=(56, 189, 248, 120), width=1)
+    draw.text((70, y + 25), "⚠️ KANUNI: Kulinda mtaji ni kipaumbele namba 1. Bet kwa hekima na nidhamu.", fill=(203, 213, 225), font=f_small)
+    draw.text((width - 320, y + 25), "👑 BETPRO TACTICAL", fill=(56, 189, 248), font=f_sub)
+
     buf = io.BytesIO()
     poster.convert("RGB").save(buf, format="PNG")
     return buf.getvalue()
 
 # TABS MBILI TU
 tab1, tab2 = st.tabs([
-    "📸 Kichambuzi cha Mechi & Jenereta ya Bango", 
+    "📸 Kichambuzi cha Mechi & Bango Jipya", 
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: UCHAMBUZI & BANGO LA PICHA =================
+# ================= TAB 1 =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="box-card">
-        <h4 style="margin:0 0 6px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi (Bila Kikomo - {today_str})</h4>
+        <h4 style="margin:0 0 6px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia screenshot za mechi. Matokeo yatakayotoka <b>yatatengenezwa kama PICHA (Banner)</b> ikiwa na picha yako nyuma, tayari kupakua na kuposti WhatsApp Status au Facebook!
+            Pakia picha za mechi. AI itaunda <b>Tiketi za Kisasa zenye muundo wa KADI (Modern Cards)</b> badala ya maandishi ya kawaida, zikiwa tayari kupostiwa mtandaoni!
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -179,7 +206,7 @@ with tab1:
         )
     with col2:
         custom_bg_file = st.file_uploader(
-            "2. Weka Picha Yako ya Background ya Bango (Hiari):",
+            "2. Weka Picha Yako ya Background (Hiari):",
             type=["png", "jpg", "jpeg"],
             key="user_poster_bg"
         )
@@ -187,17 +214,18 @@ with tab1:
     col3, col4 = st.columns([1, 1])
     with col3:
         bet_objective = st.radio(
-            "Chagua Mfumo:",
+            "Chagua Mtindo wa Tiketi:",
             [
-                "🛡️ Mikeka 2 ya Uhakika (Tiketi 1 ya 2 Odds + Tiketi 2 ya Faida)",
-                "🚂 Treni la Kisayansi (Mechi 10-20 Salama Zaidi - Mtaji Mdogo)"
+                "🛡️ Tiketi ya Chuma (Safe 2.00 Odds - Mechi 2 Tu)",
+                "🚀 Tiketi ya Faida (Odds 3.50 - 5.00)",
+                "🚂 Treni la Kisayansi (Mechi 8 - 15 Salama Zaidi)"
             ]
         )
     with col4:
-        user_stake = st.text_input("Mtaji Wako (Mfano: TZS 1,000 au 20,000):", value="TZS 2,000")
+        user_stake = st.text_input("Mtaji Wako wa Leo:", value="TZS 20,000")
 
     if uploaded_files:
-        st.write(f"📸 **Umeingiza Jumla ya Picha za Mechi:** {len(uploaded_files)}")
+        st.write(f"📸 **Picha Zilizopakiwa:** {len(uploaded_files)}")
         processed_images = []
         cols = st.columns(min(len(uploaded_files), 4))
         for idx, file in enumerate(uploaded_files):
@@ -210,62 +238,87 @@ with tab1:
         user_bg_img = None
         if custom_bg_file:
             user_bg_img = Image.open(custom_bg_file)
-            st.image(user_bg_img, caption="Picha Itakayotumika Kama Background ya Bango", width=200)
+            st.image(user_bg_img, caption="Background Yako", width=180)
 
-        if st.button("🚀 Fanya Uchambuzi & Unda Picha ya Bango (Generate Poster)", key="btn_run_unlimited"):
+        if st.button("🚀 Unda Kadi za Tiketi (Generate Modern Slip)", key="btn_run_unlimited"):
             if not api_key:
                 st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets! Hakikisha umeiweka.")
             else:
-                with st.spinner("AI inachambua mechi zote na kuandaa picha ya bango..."):
+                with st.spinner("AI inachambua takwimu na kuunda kadi safi ya picha..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         
                         prompt = f"""
                         Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Master Betting Analyst).
-                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji: '{user_stake}'. Mfumo: '{bet_objective}'.
-
+                        Leo ni tarehe {today_str}. Lengo la mtumiaji: '{bet_objective}'.
+                        
                         MASHARTI MAKUU:
-                        1. TUPA KABISA mechi zilizoanza, zilizopita au za jana. Tumia mechi za leo au wikiendi ambazo HAZIJAANZA!
-                        2. Taja timu kubwa zenye MTEGO (TRAP ALERTS) wa kuepuka.
-                        """
-
-                        if "Treni" in bet_objective:
-                            prompt += f"""
-                            LENGO: MKEKA WA TRENI LA KISAYANSI (Pesa Nyingi kwa Mtaji wa {user_stake}):
-                            - Teua mechi 10 hadi 18 zenye machaguo SALAMA ZAIDI (92%+ confidence) kama Double Chance 1X/X2 au Over 1.5.
-                            - Weka orodha fupi na nambari safi.
-                            """
-                        else:
-                            prompt += f"""
-                            LENGO: MIKEKA MIWILI TU YA UHAKIKA (Mtaji: {user_stake}):
-                            - 🎫 TIKETI 1 (SAFE 2.00 ODDS - 95%+ PROBABILITY): Mechi 2 tu salama.
-                            - 🚀 TIKETI 2 (ODDS 3.50 - 5.00): Mechi 2 au 3 zenye faida zilizolindwa.
-                            - Mgao wa mtaji: 75% Tiketi 1, 25% Tiketi 2.
-                            """
-
-                        prompt += """
-                        Mwishoni weka orodha safi yenye vichwa vya habari na emoji kwa ajili ya bango la picha!
+                        1. Tupa mechi zilizoanza, zimeisha au za jana. Tumia mechi za leo au wikiendi AMBAZO BADO HAZIJAANZA tu!
+                        2. Tupa mitego ya timu kubwa zenye uchovu au dabi.
+                        3. Tengeneza matokeo katika muundo wa JSON pekee ili yatengeneze picha ya bango la kadi.
+                        
+                        Format ya JSON iwe hivi (USIWEKE maneno mengine nje ya JSON):
+                        ```json
+                        {{
+                            "title": "{bet_objective}",
+                            "total_odds": "2.10",
+                            "analysis_notes": "Maelezo mafupi ya kiufundi kuhusu mechi hizi...",
+                            "matches": [
+                                {{
+                                    "teams": "Arsenal vs Wolves",
+                                    "pick": "Arsenal 1X & Over 1.5",
+                                    "odds": "1.32",
+                                    "confidence": "95%",
+                                    "reason": "Arsenal ipo nyumbani na Wolves haina ushindi mechi 4"
+                                }}
+                            ]
+                        }}
+                        ```
+                        Hakikisha unaweka mechi 2 tu kama amechagua Tiketi ya Chuma, au mechi 3 kama ni Faida, au mechi 8-12 kama ni Treni.
                         """
 
                         contents = [prompt] + processed_images
-                        result_text = call_gemini_fast(client, contents)
+                        result_raw = call_gemini_fast(client, contents)
                         
-                        st.success("✅ Uchambuzi Umekamilika!")
-                        st.markdown(result_text)
+                        # Chomoa JSON kutoka kwenye jibu la AI
+                        json_str = result_raw
+                        if "```json" in result_raw:
+                            json_str = result_raw.split("```json")[1].split("```")[0].strip()
+                        elif "```" in result_raw:
+                            json_str = result_raw.split("```")[1].split("```")[0].strip()
                         
-                        # TENGENEZA PICHA YA BANGO LA MKAKA
-                        st.markdown("---")
-                        st.subheader("🖼️ Bango Lako la Picha (Tayari kwa WhatsApp & Facebook)")
-                        poster_bytes = create_slip_poster(result_text, user_bg_img)
-                        st.image(poster_bytes, caption="Bango la Mkeka wa Leo (PNG Image)", use_container_width=True)
+                        try:
+                            slip_data = json.loads(json_str)
+                        except:
+                            # Fallback kama JSON ikizingua
+                            slip_data = {
+                                "title": bet_objective,
+                                "total_odds": "~2.00",
+                                "matches": [
+                                    {"teams": "Uchambuzi Umekamilika", "pick": "Angalia maelezo chini", "odds": "1.40", "confidence": "90%", "reason": "Data imechakatwa"}
+                                ]
+                            }
+
+                        st.success("✅ Kadi ya Tiketi Imekamilika!")
                         
-                        # Kitufe cha kupakua picha moja kwa moja
+                        # 4. CHORA PICHA MPYA YA KADI (GRAPHIC CARD)
+                        poster_bytes = draw_modern_slip_card(slip_data, user_bg_img)
+                        
+                        st.subheader("🖼️ Tiketi Yako Mpya (Muundo wa Kadi)")
+                        st.image(poster_bytes, caption="Kadi Safi ya Mkeka (PNG)", use_container_width=True)
+                        
+                        # Kitufe cha Kupakua
                         st.download_button(
-                            label="📥 Pakua Picha Hii ya Mkeka (Download Image PNG)",
+                            label="📥 Pakua Picha Hii ya Kadi (Download PNG)",
                             data=poster_bytes,
-                            file_name=f"BetPro_Poster_{today_str}.png",
+                            file_name=f"BetPro_Card_{today_str}.png",
                             mime="image/png"
                         )
+                        
+                        # Maelezo ya Ziada ya AI
+                        with st.expander("📄 Soma Maelezo ya Kina ya Kiufundi (Tactical Breakdown)"):
+                            st.write(slip_data.get("analysis_notes", result_raw))
+
                     except Exception as e:
                         st.error(f"Hitilafu: {str(e)}")
 
