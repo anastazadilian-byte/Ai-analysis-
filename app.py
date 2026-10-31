@@ -4,9 +4,9 @@ from google import genai
 import streamlit.components.v1 as components
 from datetime import datetime
 
-# Usanidi wa Ukurasa wa Kipekee
+# Usanidi wa Ukurasa wa Kipekee (Private Terminal)
 st.set_page_config(
-    page_title="BetPro Elite - Tactical Football Syndicate",
+    page_title="BetPro Elite - Private Tactical Syndicate",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -69,9 +69,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<span class="elite-badge">⚡ PRIVATE TACTICAL TERMINAL</span>', unsafe_allow_html=True)
-st.markdown('<p class="hero-title">BetPro Elite: Uchambuzi wa Kimbinu & Mikeka 2 ya Uhakika</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Uchambuzi wa mbinu za makocha, usomaji wa mitego ya mechi, na miundo inayovutia kwa ajili ya Facebook na WhatsApp.</p>', unsafe_allow_html=True)
+st.markdown('<span class="elite-badge">⚡ UNLIMITED PRIVATE TERMINAL</span>', unsafe_allow_html=True)
+st.markdown('<p class="hero-title">BetPro Elite: Jicho la Kijasusi & Mjenzi wa Treni</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Hakuna kikomo cha uchambuzi. Pakia picha nyingi za mechi za leo au wikiendi na upate Tiketi Salama au Treni la Pesa Nyingi.</p>', unsafe_allow_html=True)
 
 # Function ya Kuita AI kwa Kasi
 def call_gemini_fast(client, contents):
@@ -88,20 +88,21 @@ def call_gemini_fast(client, contents):
         )
         return response.text
 
-# Tabs Mbili Tu
+# TABS MBILI TU
 tab1, tab2 = st.tabs([
-    "📸 Kichambuzi cha Mechi (Tiketi 2 za Uhakika)", 
+    "📸 Kichambuzi cha Mechi & Mjenzi wa Treni", 
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: UCHAMBUZI & TIKETI 2 =================
+# ================= TAB 1: UCHAMBUZI BILA KIKOMO =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="box-card">
-        <h4 style="margin:0 0 6px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi za Leo ({today_str})</h4>
+        <h4 style="margin:0 0 6px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi (Bila Kikomo - {today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia screenshot 1 au nyingi. AI itafanya uchambuzi wa kina hadi <b>mbinu za makocha na motisha ya wachezaji</b>, kisha itatoa <b>Tiketi 2 pekee zenye uhakika mkubwa</b> zilizopangwa tayari kupostiwa Facebook au WhatsApp!
+            Unaweza kupakia <b>screenshot 1 hadi 10 kwa wakati mmoja</b> kutoka SportyBet, BetPawa, au FlashScore. 
+            Chagua kama unataka <b>Mikeka 2 ya Kulinda Mtaji</b> au <b>Treni Refu la Pesa Nyingi kwa Mtaji Mdogo</b>!
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -109,20 +110,23 @@ with tab1:
     col1, col2 = st.columns([1, 1])
     with col1:
         uploaded_files = st.file_uploader(
-            "Pakia Screenshot 1 au Nyingi za Mechi:", 
+            "Pakia Screenshot za Mechi (Ruhusa ya Picha Nyingi):", 
             type=["png", "jpg", "jpeg"], 
             accept_multiple_files=True,
-            key="elite_uploader"
+            key="elite_unlimited_uploader"
         )
     with col2:
-        user_stake = st.text_input("Mtaji Wako wa Leo:", value="TZS 20,000")
-        custom_notes = st.text_input(
-            "Dokezo Lolote (Hiari):",
-            placeholder="Mfano: Mshambuliaji ana majeraha, dabi ya kukata na shoka..."
+        bet_objective = st.radio(
+            "Chagua Lengo la Uchambuzi:",
+            [
+                "🛡️ Mikeka 2 ya Uhakika (Tiketi 1 ya 2 Odds + Tiketi 2 ya Faida)",
+                "🚂 MKEKA WA TRENI LA KISAYANSI (Mechi 10-20 Salama Zaidi - Pesa Nyingi kwa Mtaji Mdogo)"
+            ]
         )
+        user_stake = st.text_input("Mtaji Wako (Mfano: TZS 1,000 au TZS 20,000):", value="TZS 2,000")
 
     if uploaded_files:
-        st.write(f"📸 **Picha Zilizopakiwa:** {len(uploaded_files)}")
+        st.write(f"📸 **Umeingiza Jumla ya Picha:** {len(uploaded_files)} (Tayari kuchakatwa)")
         processed_images = []
         cols = st.columns(min(len(uploaded_files), 4))
         for idx, file in enumerate(uploaded_files):
@@ -132,50 +136,61 @@ with tab1:
             with cols[idx % 4]:
                 st.image(img, caption=f"Picha {idx+1}", use_container_width=True)
 
-        if st.button("🚀 Fanya Uchambuzi wa Kimbinu & Tengeneza Tiketi 2", key="btn_run_elite"):
+        if st.button("🚀 Anza Uchambuzi Kabambe (Unlimited AI Run)", key="btn_run_unlimited"):
             if not api_key:
                 st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets! Hakikisha umeiweka.")
             else:
-                with st.spinner("AI inachambua mbinu za makocha, fomu, H2H na kuandaa Tiketi 2 za Uhakika..."):
+                with st.spinner(f"AI inachambua mechi zote kutoka kwenye picha {len(processed_images)}, mbinu za makocha na fomu za timu..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mtaalamu wa Mbinu za Makocha (Elite Tactical Betting Analyst).
-                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji kwa leo ni: '{user_stake}'. Maelezo: '{custom_notes}'.
-
-                        KAZI YAKO KWENYE SCREENSHOT HIZI:
-                        1. Kagua tarehe na masaa: TUPA KABISA mechi zilizoanza, zilizopita au za jana. Tumia mechi za leo ambazo HAZIJAANZA tu!
-                        2. UCHAMBUZI WA KIMBINU WA MAKOCHA (TACTICAL BREAKDOWN):
-                           - Eleza mbinu za makocha (kujilinda, kushambulia kwa kushtukiza, au kumiliki mpira).
-                           - Motisha ya timu (nani anapigania heshima, ubingwa au kutoshuka daraja) na hali ya vyumbani.
-                           - Taja wazi mechi yenye MTEGO (TRAP ALERT) ambapo timu kubwa inaweza kupoteza au kutoa sare.
-
-                        3. TENGENEZA TIKETI MBILI TU ZILIZO SALAMA (2 ELITE SLIPS):
                         
-                           🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2.00 ODDS - UHAKIKA 95%+):**
-                           - Chagua mechi 2 tu salama kabisa (mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
-                           - Hii tiketi ndiyo msingi mkuu wa kulinda mtaji usichanike kirahisi.
+                        prompt = f"""
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mtaalamu wa Kudhibiti Upotevu wa Pesa (Master Betting Analyst).
+                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji ni: '{user_stake}'. Lengo alilochagua: '{bet_objective}'.
 
-                           🚀 **TIKETI 2: TIKETI YA FAIDA & MBINU (ODDS 3.50 - 5.00):**
-                           - Chagua mechi 2 au 3 zenye faida nzuri lakini zikiwa zimezingatia udhaifu wa makocha wapinzani.
+                        KAZI YAKO KWENYE PICHA HIZI ZOTE:
+                        1. Kagua masaa na tarehe: TUPA KABISA mechi ambazo tayari zimeshaanza, zimeisha, au ni za jana. Tumia mechi zijazo za leo au wikiendi pekee ambazo BADO HAZIJAANZA!
+                        2. UCHAMBUZI WA KIMBINU WA MAKOCHA: Angalia makocha walio na presha ya kufukuzwa, timu zinazocheza mchezo wa kujilinda sana, na wachezaji majeruhi.
+                        3. ONDOA MITEGO YA WAZI (TRAP ALERTS): Taja timu kubwa zilizopo kwenye picha zenye odds za uongo (1.20-1.35) ambazo zinapaswa kuepukwa.
 
-                        4. UGAWAJI WA MTAJI KWA {user_stake}:
-                           - Weka 75% ya mtaji kwenye Tiketi 1 (Kulinda mtaji).
-                           - Weka 25% ya mtaji kwenye Tiketi 2 (Kutafuta faida).
-
-                        5. 📱 **MUUNDO WA KUSHAWISHI KWA FACEBOOK & WHATSAPP (VIRAL SOCIAL MEDIA POST):**
-                           Weka muhtasari mzuri sana mwishoni wenye vichwa vya kuvutia, emoji za soka, na maneno ya ushawishi ili mtumiaji aunakili (copy-paste) moja kwa moja kwenye kurasa za Facebook au magroup ya WhatsApp!
+                        4. ANDAA MIKEKA KULINGANA NA LENGO LA MTUMIAJI:
                         """
+
+                        if "MKEKA WA TRENI" in bet_objective:
+                            prompt += f"""
+                            LENGO NI TRENI LA KISAYANSI LA KUSHINDA PESA NYINGI KWA MTAJI MDOGO WA {user_stake}:
+                            - Kutoka kwenye picha zote, chagua MECHI 10 HADI 20 zenye machaguo SALAMA ZAIDI DUNIANI (Uhakika wa 92%+ kila mechi).
+                            - USITUMIE masoko ya hatari kama Direct Win kwa timu kubwa za ugenini. Tumia machaguo kama:
+                              * Double Chance (1X au X2)
+                              * Over 1.5 Goals
+                              * Home/Away Over 0.5 (Timu ifunge goli 1 tu)
+                              * Draw No Bet (DNB)
+                            - Unganisha mechi hizi kuwa Treni Moja Imara lenye jumla ya Odds nzuri (Odds 20 hadi 100+).
+                            - Piga hesabu: Weka {user_stake} upate makadirio gani ya faida.
+                            """
+                        else:
+                            prompt += f"""
+                            LENGO NI MIKEKA MIWILI TU YA UHAKIKA YA KULINDA MTAJI WA {user_stake}:
+                            - 🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2.00 ODDS - UHAKIKA 95%+):** Mechi 2 tu salama kabisa za kulinda mtaji.
+                            - 🚀 **TIKETI 2: TIKETI YA FAIDA (ODDS 3.50 - 5.00):** Mechi 2 au 3 zenye faida nzuri zilizolindwa.
+                            - Panga mgawanyo wa mtaji wa {user_stake} (75% Tiketi 1, 25% Tiketi 2).
+                            """
+
+                        prompt += """
+                        5. 📱 **MUUNDO WA KUSHAWISHI WA WHATSAPP & FACEBOOK:**
+                           Mwishoni kabisa, weka muhtasari safi wenye namba za mechi, majina ya timu, machaguo, na emoji za kuvutia tayari mtumiaji aunakili na kuposti moja kwa moja kwenye magroup!
+                        """
+
                         contents = [prompt] + processed_images
                         result_text = call_gemini_fast(client, contents)
-                        st.success("✅ Uchambuzi wa Kimbinu na Tiketi 2 Zimekamilika!")
+                        st.success("✅ Uchambuzi na Ujenzi wa Mkeka Umekamilika!")
                         st.markdown(result_text)
                         
-                        # Kitufe cha kupakua ujumbe wa Facebook/WhatsApp
+                        # Kitufe cha kupakua ujumbe wa WhatsApp/Facebook
                         st.download_button(
-                            label="📋 Pakua / Nakili Muhtasari wa Facebook & WhatsApp",
+                            label="📋 Pakua / Nakili Mkeka Huu kwa WhatsApp & Facebook",
                             data=result_text,
-                            file_name=f"BetPro_Social_Ticket_{today_str}.txt",
+                            file_name=f"BetPro_Master_Slip_{today_str}.txt",
                             mime="text/plain"
                         )
                     except Exception as e:
@@ -185,7 +200,7 @@ with tab1:
 with tab2:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.subheader(f"⚽ LiveScores & Ratiba ya Leo ({today_str})")
-    st.write("Fuatilia mechi za leo mubashara, piga screenshot ya mechi unazotaka kisha weka kwenye Kichambuzi:")
+    st.write("Fuatilia mechi za leo mubashara. Piga screenshot ya mechi unazotaka kisha weka kwenye Kichambuzi:")
     components.html(
         """
         <div style="border-radius:12px; overflow:hidden; border:1px solid #334155;">
