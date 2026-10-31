@@ -95,7 +95,7 @@ st.markdown("""
 
 st.markdown('<span class="vip-badge">👑 VIP AI Syndicate</span>', unsafe_allow_html=True)
 st.markdown('<p class="hero-title">BetPro Intelligence: Mfumo Kamili wa Soka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Kikokotozi cha Uhakika: Tiketi 1 (Safe 2 Odds), Tiketi 2 (Multiplier), na Tiketi 3 (Correct Score Mechi 2 Tu).</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Kikokotozi cha Uhakika: Inapokea Picha Nyingi kwa Mkupuo na Kutoa Mikeka 3 ya Kulinda Mtaji.</p>', unsafe_allow_html=True)
 
 def call_gemini_fast(client, contents):
     try:
@@ -118,37 +118,50 @@ tab1, tab2, tab3, tab4 = st.tabs([
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: SCANNER & 3 TICKETS =================
+# ================= TAB 1: SCREENSHOT ANALYZER (PICHA NYINGI) =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="vip-card">
-        <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot ya Mechi za Leo ({today_str})</h4>
+        <h4 style="margin:0 0 8px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia picha ya mechi unazotaka kubetia. AI itazikagua zote, itaondoa mitego, na kuzigawa katika: 
-            <b>Tiketi 1 (Safe 2 Odds)</b>, <b>Tiketi 2 (Multiplier)</b>, na <b>Tiketi 3 (Correct Score Mechi 2 Tu)</b> pamoja na mgao sahihi wa mtaji ili usipoteze pesa.
+            Unaweza kupakia <b>picha 1 au picha nyingi kwa pamoja</b> kutoka SportyBet, BetPawa, au FlashScore. 
+            AI itakagua mechi zote, itaondoa mitego, na kukuandalia <b>Tiketi 1 (Safe 2 Odds)</b>, <b>Tiketi 2 (Multiplier)</b>, na <b>Tiketi 3 (Correct Score Mechi 2 Tu)</b>.
         </p>
     </div>
     """, unsafe_allow_html=True)
 
     col1, col2 = st.columns([1, 1])
     with col1:
-        uploaded_file = st.file_uploader("Pakia Screenshot ya Mechi:", type=["png", "jpg", "jpeg"], key="vip_uploader")
+        # Hapa inaruhusu picha nyingi kwa mkupuo (accept_multiple_files=True)
+        uploaded_files = st.file_uploader(
+            "Pakia Screenshot 1 au Nyingi za Mechi:", 
+            type=["png", "jpg", "jpeg"], 
+            accept_multiple_files=True,
+            key="vip_multi_uploader"
+        )
     with col2:
         user_stake = st.text_input("Mtaji Wako wa Leo (Mfano: TZS 10,000 au TZS 30,000):", value="TZS 20,000")
 
-    if uploaded_file is not None:
-        raw_img = Image.open(uploaded_file).convert("RGB")
-        max_size = (1024, 1024)
-        raw_img.thumbnail(max_size, Image.Resampling.LANCZOS)
+    if uploaded_files:
+        st.write(f"📸 **Umeingiza Picha:** {len(uploaded_files)}")
+        processed_images = []
         
-        st.image(raw_img, caption="Screenshot Tayari kwa Uchambuzi", use_container_width=True)
+        # Onyesha picha zote zilizopakiwa na kuzipunguza uzito
+        cols = st.columns(min(len(uploaded_files), 3))
+        for idx, file in enumerate(uploaded_files):
+            img = Image.open(file).convert("RGB")
+            # Punguza ukubwa ili isilete uzito
+            img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+            processed_images.append(img)
+            with cols[idx % 3]:
+                st.image(img, caption=f"Picha {idx+1}", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi wa Uhakika (Tengeneza Mikeka 3)", key="btn_run_vip"):
+        if st.button("🚀 Anza Uchambuzi wa Uhakika (Picha Zote)", key="btn_run_vip"):
             if not api_key:
                 st.error("Hitilafu: Weka GEMINI_API_KEY kwenye Secrets za Streamlit!")
             else:
-                with st.spinner("AI inachambua takwimu halisi, H2H, na kuandaa Mikeka 3 ya kulinda mtaji..."):
+                with st.spinner(f"AI inachambua mechi zote kutoka kwenye picha {len(processed_images)}, inaondoa mitego na kutengeneza Mikeka 3..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
@@ -157,14 +170,14 @@ with tab1:
                         
                         KANUNI KUU YA MTUMIAJI: "HATAKI KUPOTEZA PESA, ANATAKA KULINDA MTAJI NA KUPATA FAIDA NDOGO NDOGO YA UHAKIKA."
 
-                        KAZI YAKO KWENYE SCREENSHOT HII:
-                        1. ONDOA KABISA mechi yoyote iliyokwisha chezwa au ya jana. Tumia mechi za leo ambazo HAZIJAANZA tu.
-                        2. ONDOA MITEGO YA WAZI (TRAP ALERT): Taja timu yoyote kubwa kwenye picha ambayo ina mtego wa kutoa sare au kufungwa.
+                        KAZI YAKO KWENYE PICHA HIZI ZOTE:
+                        1. ONDOA KABISA mechi yoyote iliyokwisha chezwa, inayoendelea, au ya jana. Tumia mechi za leo ambazo HAZIJAANZA tu!
+                        2. ONDOA MITEGO YA WAZI (TRAP ALERT): Taja timu yoyote kubwa kwenye picha hizi ambayo ina mtego wa kutoa sare au kufungwa.
                         
                         3. TENGENEZA MIKEKA MITATU (3 SMART SLIPS):
                         
                            🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2 ODDS - UHAKIKA 90%+):**
-                           - Chagua mechi 2 tu salama kabisa (mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
+                           - Chagua mechi 2 tu salama kabisa kutoka picha zote (mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
                            - Lengo: Hii tiketi ndiyo ya uhakika wa kulinda mtaji.
 
                            🚀 **TIKETI 2: TIKETI YA FAIDA (MULTIPLIER - ODDS 3.50 HADI 5.00):**
@@ -172,7 +185,7 @@ with tab1:
                            - Lengo: Kukuza mtaji taratibu.
 
                            🎯 **TIKETI 3: VIP CORRECT SCORE (MECHI 2 TU BASI!):**
-                           - Kutoka mechi zote za picha, teua MECHI 2 TU zenye uwezekano mkubwa zaidi wa kutoa matokeo kamili.
+                           - Kutoka mechi zote za picha hizi, teua MECHI 2 TU zenye uwezekano mkubwa zaidi wa kutoa matokeo kamili.
                            - Kwa kila mechi taja Matokeo Makuu (mfano 2-0 au 2-1) na Matokeo Mbadala ya Kinga (mfano 1-0 au 1-1).
 
                         4. 💰 **MGAO WA PESA KISAYANSI (KWA MTAJI WA {user_stake}):**
@@ -183,7 +196,9 @@ with tab1:
 
                         Toa majibu kwa Kiswahili fasaha, nambari na mpangilio safi wa kitaalamu.
                         """
-                        result_text = call_gemini_fast(client, [prompt, raw_img])
+                        # Tuma prompt pamoja na picha zote zilizopakiwa
+                        contents = [prompt] + processed_images
+                        result_text = call_gemini_fast(client, contents)
                         st.success("✅ Uchambuzi na Mikeka 3 ya Uhakika Imekamilika!")
                         st.markdown(result_text)
                     except Exception as e:
@@ -261,7 +276,7 @@ with tab3:
                 with st.spinner("Inajibu mara moja..."):
                     try:
                         client = genai.Client(api_key=api_key)
-                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kwa Kiswahili na weledi: '{user_question}'"
+                        chat_prompt = f"Wewe ni Mchambuzi wa Soka wa Kimataifa. Jibu swali hili kuhusu soka au Correct Score kwa Kiswahili na weledi: '{user_question}'"
                         ans = call_gemini_fast(client, [chat_prompt])
                         st.write(ans)
                         st.session_state.chat_messages.append({"role": "assistant", "content": ans})
