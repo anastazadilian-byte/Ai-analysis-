@@ -4,9 +4,9 @@ from google import genai
 import streamlit.components.v1 as components
 from datetime import datetime
 
-# Usanidi wa Ukurasa wa Kipekee (Admin Terminal)
+# Usanidi wa Ukurasa wa Kipekee
 st.set_page_config(
-    page_title="BetPro Elite - Kituo cha Kijasusi cha Soka",
+    page_title="BetPro Elite - Tactical Football Syndicate",
     page_icon="⚡",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -15,7 +15,7 @@ st.set_page_config(
 # KUSOMA API KEY KUTOKA KWENYE SECRETS
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Theme ya Kisasa, Nyepesi na Safi
+# Theme ya Kisasa
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
@@ -26,7 +26,6 @@ st.markdown("""
         color: #f8fafc; 
     }
     
-    /* Ficha Alama za Streamlit na Header */
     header[data-testid="stHeader"] { visibility: hidden; height: 0%; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
@@ -70,9 +69,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<span class="elite-badge">⚡ PRIVATE SYNDICATE TERMINAL</span>', unsafe_allow_html=True)
-st.markdown('<p class="hero-title">BetPro Elite: Jicho la Kijasusi cha Soka</p>', unsafe_allow_html=True)
-st.markdown('<p class="hero-sub">Uchambuzi Kabambe wa Kulinda Mtaji, Mitego ya Mechi, na Uundaji wa Mikeka ya Uhakika (WhatsApp Ready).</p>', unsafe_allow_html=True)
+st.markdown('<span class="elite-badge">⚡ PRIVATE TACTICAL TERMINAL</span>', unsafe_allow_html=True)
+st.markdown('<p class="hero-title">BetPro Elite: Uchambuzi wa Kimbinu & Mikeka 2 ya Uhakika</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-sub">Uchambuzi wa mbinu za makocha, usomaji wa mitego ya mechi, na miundo inayovutia kwa ajili ya Facebook na WhatsApp.</p>', unsafe_allow_html=True)
 
 # Function ya Kuita AI kwa Kasi
 def call_gemini_fast(client, contents):
@@ -89,21 +88,20 @@ def call_gemini_fast(client, contents):
         )
         return response.text
 
-# TABS MBILI TU: UCHAMBUZI NA LIVESCORE
+# Tabs Mbili Tu
 tab1, tab2 = st.tabs([
-    "📸 Kichambuzi cha Mechi (Mikeka 3 ya Uhakika)", 
+    "📸 Kichambuzi cha Mechi (Tiketi 2 za Uhakika)", 
     "⚽ LiveScores & Ratiba ya Leo"
 ])
 
-# ================= TAB 1: UCHAMBUZI KABAMBE =================
+# ================= TAB 1: UCHAMBUZI & TIKETI 2 =================
 with tab1:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.markdown(f"""
     <div class="box-card">
         <h4 style="margin:0 0 6px 0; color:#38bdf8;">🎯 Pakia Screenshot za Mechi za Leo ({today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#cbd5e1;">
-            Pakia screenshot 1 au nyingi kwa pamoja. AI itakagua kila kitu kwa kina 1000% na kukupa: 
-            <b>Tiketi 1 (Safe 2 Odds)</b>, <b>Tiketi 2 (Multiplier)</b>, na <b>Tiketi 3 (Correct Score Mechi 2 Tu)</b> pamoja na maandishi safi ya kurusha WhatsApp.
+            Pakia screenshot 1 au nyingi. AI itafanya uchambuzi wa kina hadi <b>mbinu za makocha na motisha ya wachezaji</b>, kisha itatoa <b>Tiketi 2 pekee zenye uhakika mkubwa</b> zilizopangwa tayari kupostiwa Facebook au WhatsApp!
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -119,8 +117,8 @@ with tab1:
     with col2:
         user_stake = st.text_input("Mtaji Wako wa Leo:", value="TZS 20,000")
         custom_notes = st.text_input(
-            "Dokezo Lolote la Ziada (Hiari):",
-            placeholder="Mfano: Mshambuliaji fulani yupo benchi, zingatia ligi kuu..."
+            "Dokezo Lolote (Hiari):",
+            placeholder="Mfano: Mshambuliaji ana majeraha, dabi ya kukata na shoka..."
         )
 
     if uploaded_files:
@@ -134,56 +132,50 @@ with tab1:
             with cols[idx % 4]:
                 st.image(img, caption=f"Picha {idx+1}", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi Kabambe (Chuja Mitego & Unda Mikeka)", key="btn_run_elite"):
+        if st.button("🚀 Fanya Uchambuzi wa Kimbinu & Tengeneza Tiketi 2", key="btn_run_elite"):
             if not api_key:
                 st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets! Hakikisha umeiweka.")
             else:
-                with st.spinner("AI inachambua picha zote, inatupa mechi zilizochezwa, na kupanga mikeka 3 ya uhakika..."):
+                with st.spinner("AI inachambua mbinu za makocha, fomu, H2H na kuandaa Tiketi 2 za Uhakika..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Master Football Betting Syndicate Analyst).
-                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji kwa leo ni: '{user_stake}'. Maelezo ya ziada: '{custom_notes}'.
-                        
-                        KANUNI KUU YA MTUMIAJI: "ANATAKA KULINDA MTAJI KWA 100%, HATAKI KUPOTEZA PESA, ANATAKA FAIDA NDOGO NDOGO ZA UHAKIKA WA JUU SANA."
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mtaalamu wa Mbinu za Makocha (Elite Tactical Betting Analyst).
+                        Leo ni tarehe {today_str}. Mtaji wa mtumiaji kwa leo ni: '{user_stake}'. Maelezo: '{custom_notes}'.
 
-                        KAZI YAKO KWENYE PICHA HIZI ZOTE:
-                        1. KAGUA MUDA & TAREHE: Ondoa kabisa mechi ambazo zimeshaanza, zimeisha (Full Time), au za jana. Tumia mechi zijazo za leo pekee!
-                        2. ⚠️ ONDOA MITEGO YA WAZI (TRAP ALERTS): Taja timu yoyote kubwa kwenye picha hizi ambayo imepewa odds ndogo lakini ina mtego wa kupoteza alama kwa sababu ya uchovu au dabi.
+                        KAZI YAKO KWENYE SCREENSHOT HIZI:
+                        1. Kagua tarehe na masaa: TUPA KABISA mechi zilizoanza, zilizopita au za jana. Tumia mechi za leo ambazo HAZIJAANZA tu!
+                        2. UCHAMBUZI WA KIMBINU WA MAKOCHA (TACTICAL BREAKDOWN):
+                           - Eleza mbinu za makocha (kujilinda, kushambulia kwa kushtukiza, au kumiliki mpira).
+                           - Motisha ya timu (nani anapigania heshima, ubingwa au kutoshuka daraja) na hali ya vyumbani.
+                           - Taja wazi mechi yenye MTEGO (TRAP ALERT) ambapo timu kubwa inaweza kupoteza au kutoa sare.
+
+                        3. TENGENEZA TIKETI MBILI TU ZILIZO SALAMA (2 ELITE SLIPS):
                         
-                        3. TENGENEZA MIKEKA MITATU (3 ELITE SLIPS):
-                        
-                           🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2 ODDS - UHAKIKA 95%+):**
+                           🎫 **TIKETI 1: TIKETI YA CHUMA (SAFE 2.00 ODDS - UHAKIKA 95%+):**
                            - Chagua mechi 2 tu salama kabisa (mfano: Double Chance 1X/X2, Over 1.5 Goals, Draw No Bet).
-                           - Lengo: Kulinda mtaji wako usipotee.
+                           - Hii tiketi ndiyo msingi mkuu wa kulinda mtaji usichanike kirahisi.
 
-                           🚀 **TIKETI 2: TIKETI YA FAIDA (MULTIPLIER - ODDS 4.00 HADI 6.00):**
-                           - Chagua mechi 3 zilizochujwa vizuri zenye faida ya ziada lakini zikiwa na kinga thabiti.
-                           - Lengo: Kukuza mtaji taratibu.
+                           🚀 **TIKETI 2: TIKETI YA FAIDA & MBINU (ODDS 3.50 - 5.00):**
+                           - Chagua mechi 2 au 3 zenye faida nzuri lakini zikiwa zimezingatia udhaifu wa makocha wapinzani.
 
-                           🎯 **TIKETI 3: VIP CORRECT SCORE (MECHI 2 TU PEKEE!):**
-                           - Teua MECHI 2 TU zenye nafasi kubwa zaidi ya kutoa matokeo kamili kulingana na safu ya ulinzi na ufungaji (xG).
-                           - Kwa kila mechi taja Matokeo Makuu (Primary Score) na Matokeo ya Kinga (Cover Score).
+                        4. UGAWAJI WA MTAJI KWA {user_stake}:
+                           - Weka 75% ya mtaji kwenye Tiketi 1 (Kulinda mtaji).
+                           - Weka 25% ya mtaji kwenye Tiketi 2 (Kutafuta faida).
 
-                        4. 💰 **MGAO WA PESA KISAYANSI (KWA MTAJI WA {user_stake}):**
-                           - Piga hesabu ya pesa ya kuweka Tiketi 1 (70% ya mtaji).
-                           - Piga hesabu ya pesa ya kuweka Tiketi 2 (20% ya mtaji).
-                           - Piga hesabu ya pesa ya kuweka Tiketi 3 (10% tu ya mtaji).
-                           - Eleza kwanini mfumo huu unamlinda asipoteze pesa zote hata kama tiketi nyingine zikikosa!
-
-                        5. 📲 **FOMU YA WHATSAPP (WHATSAPP READY FORMAT):**
-                           Mwishoni kabisa, weka muhtasari mfupi wenye emoji safi unaosomeka kwa urahisi ili mtumiaji aunakili (copy-paste) moja kwa moja kwenye magroup ya WhatsApp!
+                        5. 📱 **MUUNDO WA KUSHAWISHI KWA FACEBOOK & WHATSAPP (VIRAL SOCIAL MEDIA POST):**
+                           Weka muhtasari mzuri sana mwishoni wenye vichwa vya kuvutia, emoji za soka, na maneno ya ushawishi ili mtumiaji aunakili (copy-paste) moja kwa moja kwenye kurasa za Facebook au magroup ya WhatsApp!
                         """
                         contents = [prompt] + processed_images
                         result_text = call_gemini_fast(client, contents)
-                        st.success("✅ Uchambuzi Kabambe Umekamilika!")
+                        st.success("✅ Uchambuzi wa Kimbinu na Tiketi 2 Zimekamilika!")
                         st.markdown(result_text)
                         
-                        # Kitufe cha kupakua ripoti ya WhatsApp
+                        # Kitufe cha kupakua ujumbe wa Facebook/WhatsApp
                         st.download_button(
-                            label="📋 Pakua / Nakili Muhtasari wa WhatsApp",
+                            label="📋 Pakua / Nakili Muhtasari wa Facebook & WhatsApp",
                             data=result_text,
-                            file_name=f"BetPro_WhatsApp_Slip_{today_str}.txt",
+                            file_name=f"BetPro_Social_Ticket_{today_str}.txt",
                             mime="text/plain"
                         )
                     except Exception as e:
@@ -193,7 +185,7 @@ with tab1:
 with tab2:
     today_str = datetime.now().strftime("%d-%m-%Y")
     st.subheader(f"⚽ LiveScores & Ratiba ya Leo ({today_str})")
-    st.write("Fuatilia mechi za leo, piga screenshot ya orodha ya mechi unazotaka kisha weka kwenye Kichambuzi:")
+    st.write("Fuatilia mechi za leo mubashara, piga screenshot ya mechi unazotaka kisha weka kwenye Kichambuzi:")
     components.html(
         """
         <div style="border-radius:12px; overflow:hidden; border:1px solid #334155;">
