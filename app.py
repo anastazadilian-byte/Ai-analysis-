@@ -1,4 +1,4 @@
-"""BetPro Elite - Viral Slip Generator (toleo la kisasa)
+"""BetPro Elite - Viral Slip Generator (Uchambuzi wa Kina)
 
 Inahitaji: streamlit>=1.50, google-genai, pillow>=10.1, pydantic>=2
 """
@@ -31,8 +31,7 @@ st.set_page_config(
 TZ = ZoneInfo("Africa/Dar_es_Salaam")  # saa za server mara nyingi ni UTC
 MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
 BACKGROUND_PHOTO = Path("profile.jpg")
-POSTER_SIZE = (1080, 1350)  # uwiano bora kwa Instagram / Facebook / WhatsApp
-MAX_PICKS = 8
+POSTER_SIZE = (1080, 1350)
 
 FONT_PATHS = [
     "DejaVuSans-Bold.ttf",
@@ -42,47 +41,49 @@ FONT_PATHS = [
     "/Library/Fonts/Arial Bold.ttf",
 ]
 
-PICK_COUNTS = {
-    2: "🔥 Mechi 2",
-    4: "⭐ Mechi 4",
-    6: "🚂 Mechi 6",
-}
+PICK_COUNTS = {2: "🔥 Mechi 2", 4: "⭐ Mechi 4", 6: "🚂 Mechi 6"}
+
+
+class Pick(BaseModel):
+    label: str = Field(description="Maandishi mafupi ya bango (chini ya herufi 28), mfano 'Roma Win' au 'Over 1.5 Goals'")
+    match: str = Field(description="Mechi kamili, mfano 'Roma vs Lazio'")
+    market: str = Field(description="Soko lililochaguliwa na kwa nini ni salama kuliko ushindi wa moja kwa moja")
+    confidence: int = Field(description="Alama ya usalama 0 hadi 100")
+    risk: str = Field(description="Low au Medium")
+    reasons: list[str] = Field(description="Sababu 3 hadi 5 zenye ushahidi (fomu, majeruhi, motisha, H2H, takwimu)")
 
 
 class SlipResult(BaseModel):
-    """Muundo ambao Gemini analazimishwa kuutoa (structured output)."""
-
-    picks: list[str] = Field(description="Chaguo fupi, kila moja chini ya herufi 25")
-    full_analysis: str = Field(description="Uchambuzi wa kina kwa Kiswahili")
+    picks: list[Pick]
+    rejected: list[str] = Field(description="Mechi zilizotupwa, kila moja na sababu fupi")
+    summary: str = Field(description="Muhtasari wa Kiswahili wa kwa nini hizi ndizo bora za leo")
 
 
 @dataclass(frozen=True)
 class PosterResult:
     image: bytes
-    picks: list[str]
-    analysis: str
+    picks: list[Pick]
+    slip: SlipResult
+    report: str
     filename: str
 
 
 def get_api_key() -> str:
     try:
         key = st.secrets.get("GEMINI_API_KEY", "")
-    except Exception:  # hakuna secrets.toml
+    except Exception:
         key = ""
     return key or os.environ.get("GEMINI_API_KEY", "")
 
 
 # ============================================================
-# 2. MUONEKANO (CSS)
+# 2. MUONEKANO
 # ============================================================
 st.markdown(
     """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-    :root {
-        --bg: #070b16; --card: rgba(255,255,255,.04); --line: rgba(255,255,255,.09);
-        --green: #10b981; --blue: #38bdf8; --muted: #94a3b8;
-    }
+    :root { --bg:#070b16; --card:rgba(255,255,255,.04); --line:rgba(255,255,255,.09); --green:#10b981; --blue:#38bdf8; --muted:#94a3b8; }
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     .stApp {
         background:
@@ -92,31 +93,18 @@ st.markdown(
         color: #f8fafc;
     }
     header[data-testid="stHeader"], #MainMenu, footer, .stAppDeployButton { display: none; }
-
-    .badge {
-        display: inline-block; padding: 4px 14px; border-radius: 999px;
-        font-size: .72rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
-        color: #fff; background: linear-gradient(135deg, #10b981, #059669);
-    }
-    .hero-title {
-        margin: 10px 0 0; font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 800; line-height: 1.15;
-        background: linear-gradient(90deg, var(--green), var(--blue));
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .hero-sub { color: var(--muted); margin: 6px 0 22px; font-size: .95rem; }
-
-    div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: var(--card); border: 1px solid var(--line) !important;
-        border-radius: 16px; backdrop-filter: blur(8px);
-    }
+    .badge { display:inline-block; padding:4px 14px; border-radius:999px; font-size:.72rem; font-weight:800;
+             letter-spacing:1px; text-transform:uppercase; color:#fff; background:linear-gradient(135deg,#10b981,#059669); }
+    .hero-title { margin:10px 0 0; font-size:clamp(1.6rem,4vw,2.4rem); font-weight:800; line-height:1.15;
+                  background:linear-gradient(90deg,var(--green),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .hero-sub { color:var(--muted); margin:6px 0 22px; font-size:.95rem; }
+    div[data-testid="stVerticalBlockBorderWrapper"] { background:var(--card); border:1px solid var(--line) !important;
+                  border-radius:16px; backdrop-filter:blur(8px); }
     .stButton > button[kind="primary"], .stDownloadButton > button {
-        background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: 0;
-        border-radius: 12px; font-weight: 800; padding: .75rem 1.6rem;
-        box-shadow: 0 6px 20px rgba(16,185,129,.35); transition: transform .15s ease, box-shadow .15s ease;
-    }
+        background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:0; border-radius:12px; font-weight:800;
+        padding:.75rem 1.6rem; box-shadow:0 6px 20px rgba(16,185,129,.35); transition:transform .15s ease, box-shadow .15s ease; }
     .stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover {
-        transform: translateY(-1px); box-shadow: 0 10px 26px rgba(16,185,129,.45); color: #fff;
-    }
+        transform:translateY(-1px); box-shadow:0 10px 26px rgba(16,185,129,.45); color:#fff; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -124,54 +112,92 @@ st.markdown(
 
 
 # ============================================================
-# 3. GEMINI
+# 3. GEMINI: UCHAMBUZI WA HATUA MBILI
 # ============================================================
 @st.cache_resource(show_spinner=False)
 def get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-def build_prompt(day: str, date: str, count: int) -> str:
-    return f"""
-Wewe ni mchambuzi mkuu wa soka. Leo ni {day}, tarehe {date}.
-
-MASHARTI:
-1. Tumia TU mechi zinazoonekana kwenye screenshots zilizopakiwa.
-2. Acha mechi zilizoanza, zilizoisha au za jana. Chagua zile ambazo bado hazijaanza.
-3. Epuka mitego ya wazi (timu kubwa zenye uchovu, dabi, mechi zisizotabirika).
-4. Toa picks {count} kamili. Kama mechi zinazofaa ni chache kuliko hizo, toa zilizopo tu.
-5. Kila pick iwe fupi (jina la timu au chaguo, chini ya herufi 25).
-6. full_analysis iwe Kiswahili, ikieleza kwa nini kila chaguo kimechaguliwa.
-""".strip()
-
-
-def analyse_matches(client: genai.Client, prompt: str, images: list[Image.Image]) -> SlipResult:
+def generate(client: genai.Client, contents, config: types.GenerateContentConfig):
     """Jaribu models kwa mpangilio hadi mmoja ufanikiwe."""
     last_error: Exception | None = None
     for model in MODELS:
         try:
-            response = client.models.generate_content(
-                model=model,
-                contents=[prompt, *images],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=SlipResult,
-                    temperature=0.4,
-                ),
-            )
-            if isinstance(response.parsed, SlipResult):
-                return response.parsed
-            if response.text:
-                return SlipResult.model_validate_json(response.text)
-        except Exception as exc:  # jaribu model inayofuata
+            response = client.models.generate_content(model=model, contents=contents, config=config)
+            if response.text or response.parsed:
+                return response
+        except Exception as exc:
             last_error = exc
     raise RuntimeError(f"Models zote zimeshindwa. Kosa la mwisho: {last_error}")
+
+
+def research_prompt(day: str, date: str) -> str:
+    return f"""
+Wewe ni mchambuzi mkuu wa soka wa kiwango cha juu. Lengo la mteja: kuchagua mechi chache SALAMA kuliko zote
+za leo ili mkeka usichanike. Ubora ni muhimu kuliko wingi. Leo ni {day}, tarehe {date} (saa za Afrika Mashariki).
+
+HATUA 1 - Soma screenshots zote. Orodhesha kila mechi (timu, ligi, saa, odds kama zinaonekana).
+Tupa mechi ambazo zimeanza, zimeisha, au ni za jana.
+
+HATUA 2 - Kwa kila mechi inayobaki, tafuta mtandaoni taarifa za SASA na uchambue kwa kina:
+1. Fomu ya mechi 5-6 za mwisho za kila timu (nyumbani na ugenini kando kando).
+2. Rekodi ya mechi za hivi karibuni kati yao (H2H).
+3. Majeruhi, adhabu, wachezaji muhimu kukosekana, na kikosi kinachotarajiwa.
+4. Motisha: nafasi kwenye msimamo, kuepuka kushuka daraja, ubingwa, mechi ya kombe, au timu kupumzisha wachezaji.
+5. Uchovu na ratiba: mechi za katikati ya wiki, safari ndefu, mechi kubwa inayofuata.
+6. Mbinu za makocha, mechi-ups, na takwimu za magoli (wastani wa magoli, xG, clean sheets).
+7. Mazingira: uwanja, hali ya hewa, mwamuzi kama inahusika.
+8. Odds: je zinaendana na uwezekano halisi? Epuka mitego ya odds ndogo kwa timu kubwa yenye matatizo.
+9. Soko salama zaidi: Double Chance, Draw No Bet, Over 1.5, Under 4.5, n.k. Chagua soko lenye uwezekano mkubwa
+   zaidi badala ya ushindi wa moja kwa moja pale ushindi una hatari.
+
+HATUA 3 - Kwa kila mechi toa alama ya usalama 0-100 na sababu zake. Kuwa mkali: ukiona shaka kubwa, ipe alama ya chini.
+Tumia habari ulizozipata mtandaoni. Usibuni takwimu; kama huna uhakika na kitu, sema wazi.
+Toa ripoti kamili ya maandishi kwa Kiswahili.
+""".strip()
+
+
+def selection_prompt(report: str, count: int, min_conf: int) -> str:
+    return f"""
+Hii ni ripoti ya uchambuzi wa mechi za leo:
+
+{report}
+
+KAZI: Chagua mechi BORA ZA SIKU, zisizozidi {count}.
+- Chukua TU zenye confidence ya {min_conf} au zaidi. Kama hazifiki {count}, toa chache. Usijaze nafasi kwa mechi dhaifu.
+- Panga kuanzia yenye confidence kubwa zaidi.
+- 'label' iwe fupi na iseme soko wazi (mfano 'Roma Win', 'Spurs or Draw', 'Over 1.5 Goals').
+- Weka kwenye 'rejected' mechi zilizotupwa pamoja na sababu fupi.
+- Usibuni taarifa ambazo hazipo kwenye ripoti.
+""".strip()
+
+
+def research_matches(client: genai.Client, images: list[Image.Image], day: str, date: str) -> str:
+    config = types.GenerateContentConfig(
+        tools=[types.Tool(google_search=types.GoogleSearch())],
+        temperature=0.2,
+    )
+    response = generate(client, [research_prompt(day, date), *images], config)
+    return response.text or ""
+
+
+def select_picks(client: genai.Client, report: str, count: int, min_conf: int) -> SlipResult:
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=SlipResult,
+        temperature=0.2,
+    )
+    response = generate(client, selection_prompt(report, count, min_conf), config)
+    if isinstance(response.parsed, SlipResult):
+        return response.parsed
+    return SlipResult.model_validate_json(response.text)
 
 
 # ============================================================
 # 4. PICHA / BANGO
 # ============================================================
-def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+def load_font(size: int):
     for path in FONT_PATHS:
         try:
             return ImageFont.truetype(path, size)
@@ -179,12 +205,11 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
             continue
     try:
         return ImageFont.load_default(size=size)
-    except TypeError:  # Pillow ya zamani
+    except TypeError:
         return ImageFont.load_default()
 
 
 def fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, start: int, minimum: int = 18):
-    """Punguza herufi hadi maandishi yatoshee kwenye upana."""
     for size in range(start, minimum, -2):
         font = load_font(size)
         left, _, right, _ = draw.textbbox((0, 0), text, font=font)
@@ -194,30 +219,24 @@ def fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, start: int, m
 
 
 def make_background(size: tuple[int, int]) -> Image.Image:
-    w, h = size
     if BACKGROUND_PHOTO.exists():
         photo = ImageOps.exif_transpose(Image.open(BACKGROUND_PHOTO)).convert("RGBA")
-        photo = ImageOps.fit(photo, size, Image.Resampling.LANCZOS)
-        photo = photo.filter(ImageFilter.GaussianBlur(2))
+        photo = ImageOps.fit(photo, size, Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(2))
         photo = ImageEnhance.Brightness(photo).enhance(0.35)
-        tint = Image.new("RGBA", size, (5, 150, 60, 160))
-        return Image.alpha_composite(photo, tint)
+        return Image.alpha_composite(photo, Image.new("RGBA", size, (5, 150, 60, 160)))
     gradient = Image.linear_gradient("L").resize(size)
     return ImageOps.colorize(gradient, black=(0, 120, 45), white=(0, 205, 75)).convert("RGBA")
 
 
-def make_poster(picks: list[str], title: str, date_label: str) -> bytes:
+def make_poster(labels: list[str], title: str, date_label: str) -> bytes:
     w, h = POSTER_SIZE
     poster = make_background(POSTER_SIZE)
     draw = ImageDraw.Draw(poster)
 
-    # Kichwa na tarehe
-    title_font = fit_font(draw, title, w - 160, 78)
-    draw.text((w // 2, 80), title, fill=(0, 0, 0), font=title_font, anchor="mt")
+    draw.text((w // 2, 80), title, fill=(0, 0, 0), font=fit_font(draw, title, w - 160, 78), anchor="mt")
     draw.text((w // 2, 185), date_label, fill=(255, 255, 255), font=load_font(28), anchor="mt")
 
-    # Mpangilio wa kadi (unajirekebisha kulingana na idadi)
-    n = max(1, len(picks))
+    n = max(1, len(labels))
     top, reserved_bottom, gap = 260, 150, 36
     available = h - top - reserved_bottom
     card_h = min(130, (available - gap * (n - 1)) // n)
@@ -225,7 +244,6 @@ def make_poster(picks: list[str], title: str, date_label: str) -> bytes:
     y0 = top + max(0, (available - block_h) // 2)
     cards = [(80, y0 + i * (card_h + gap), w - 80, y0 + i * (card_h + gap) + card_h) for i in range(n)]
 
-    # Kivuli laini chini ya kadi
     shadow = Image.new("RGBA", POSTER_SIZE, (0, 0, 0, 0))
     shadow_draw = ImageDraw.Draw(shadow)
     for x1, y1, x2, y2 in cards:
@@ -233,12 +251,13 @@ def make_poster(picks: list[str], title: str, date_label: str) -> bytes:
     poster = Image.alpha_composite(poster, shadow.filter(ImageFilter.GaussianBlur(16)))
     draw = ImageDraw.Draw(poster)
 
-    # Kadi nyeupe zenye nyota nyeusi
-    for (x1, y1, x2, y2), pick in zip(cards, picks):
+    for (x1, y1, x2, y2), label in zip(cards, labels):
         draw.rounded_rectangle((x1, y1, x2, y2), radius=26, fill=(255, 255, 255))
-        line = f"★  {pick}"
-        font = fit_font(draw, line, (x2 - x1) - 80, 46)
-        draw.text(((x1 + x2) // 2, (y1 + y2) // 2), line, fill=(0, 0, 0), font=font, anchor="mm")
+        line = f"★  {label}"
+        draw.text(
+            ((x1 + x2) // 2, (y1 + y2) // 2), line, fill=(0, 0, 0),
+            font=fit_font(draw, line, (x2 - x1) - 80, 46), anchor="mm",
+        )
 
     draw.text((w // 2, h - 70), "BETPRO TACTICAL SYNDICATE", fill=(255, 255, 255), font=load_font(26), anchor="mm")
 
@@ -264,87 +283,112 @@ day_name = now.strftime("%A")
 date_short = now.strftime("%d-%m-%Y")
 
 st.markdown('<span class="badge">⚡ Viral Slip Terminal</span>', unsafe_allow_html=True)
-st.markdown('<p class="hero-title">BetPro Elite: Bango la Kisasa la Mitandaoni</p>', unsafe_allow_html=True)
+st.markdown('<p class="hero-title">BetPro Elite: Best of the Day</p>', unsafe_allow_html=True)
 st.markdown(
-    '<p class="hero-sub">Pakia screenshot, AI inachambua, na unapata bango la vibao vyeupe lenye nyota na picha yako nyuma.</p>',
+    '<p class="hero-sub">AI inachambua kwa kina kwa kutumia taarifa za sasa za mtandaoni, kisha inachagua mechi bora na salama za leo tu.</p>',
     unsafe_allow_html=True,
 )
 
 tab_slip, tab_scores = st.tabs(["📸 Kichambuzi cha Mechi", "⚽ LiveScores"])
 
-# ---------------- TAB 1 ----------------
 with tab_slip:
     with st.container(border=True):
         st.markdown(f"#### 🎯 Pakia Screenshot za Mechi · {day_name}, {date_short}")
         left, right = st.columns(2, gap="large")
         with left:
             uploaded = st.file_uploader(
-                "Screenshot za mechi (unaweza kupakia nyingi)",
+                "Screenshot za mechi (pakia nyingi iwezekanavyo, AI itachagua bora)",
                 type=["png", "jpg", "jpeg"],
                 accept_multiple_files=True,
             )
         with right:
             count = st.segmented_control(
-                "Idadi ya mechi kwenye bango",
+                "Idadi ya juu ya mechi kwenye bango",
                 options=list(PICK_COUNTS),
                 format_func=PICK_COUNTS.get,
                 default=4,
             ) or 4
+            min_conf = st.slider(
+                "Kiwango cha chini cha usalama (%)",
+                min_value=60, max_value=95, value=80, step=5,
+                help="Mechi chini ya kiwango hiki zinatupwa kabisa. Juu zaidi = mechi chache lakini salama zaidi.",
+            )
             title = st.text_input("Kichwa cha bango (hiari)", value=f"{day_name} Picks")
 
     if uploaded:
         images = prepare_images(uploaded)
-        with st.expander(f"📸 Picha zilizopakiwa ({len(images)})", expanded=False):
+        with st.expander(f"📸 Picha zilizopakiwa ({len(images)})"):
             st.image(images, width=150)
 
-        if st.button("🚀 Unda Bango", type="primary", width="stretch"):
+        if st.button("🚀 Chambua na Unda Bango", type="primary", width="stretch"):
             api_key = get_api_key()
             if not api_key:
                 st.error("GEMINI_API_KEY haipo kwenye Secrets. Iweke kwanza.")
             else:
                 try:
-                    with st.status("AI inachambua mechi...", expanded=True) as status:
-                        st.write("Inasoma screenshots na kuchagua mechi bora...")
-                        result = analyse_matches(
-                            get_client(api_key),
-                            build_prompt(day_name, date_short, count),
-                            images,
-                        )
-                        picks = [p.strip() for p in result.picks if p.strip()][:count]
+                    client = get_client(api_key)
+                    with st.status("Uchambuzi wa kina unaendelea (inaweza kuchukua dakika 1-2)...", expanded=True) as status:
+                        st.write("🔎 Hatua 1: Inasoma mechi na kutafuta fomu, majeruhi, motisha na takwimu za sasa...")
+                        report = research_matches(client, images, day_name, date_short)
+
+                        st.write("🎯 Hatua 2: Inachuja na kuchagua mechi bora tu...")
+                        slip = select_picks(client, report, count, min_conf)
+                        picks = sorted(
+                            [p for p in slip.picks if p.confidence >= min_conf],
+                            key=lambda p: p.confidence,
+                            reverse=True,
+                        )[:count]
+
                         if not picks:
-                            status.update(label="Hakuna mechi inayofaa", state="error")
-                            st.warning("AI haikupata mechi inayofaa kwenye picha ulizopakia.")
+                            status.update(label="Hakuna mechi iliyofikia kiwango", state="error")
+                            st.session_state.pop("result", None)
+                            st.warning(
+                                f"Hakuna mechi iliyofikia usalama wa {min_conf}%. Bora kutoweka leo kuliko kuchana mkeka. "
+                                "Pakia mechi zaidi au punguza kiwango kidogo."
+                            )
                         else:
-                            st.write("Inaunda bango...")
-                            poster = make_poster(picks, title or f"{day_name} Picks", now.strftime("%d %B %Y"))
+                            if len(picks) < count:
+                                st.write(f"ℹ️ Mechi {len(picks)} tu ndizo zilizofikia kiwango.")
+                            poster = make_poster(
+                                [p.label for p in picks], title or f"{day_name} Picks", now.strftime("%d %B %Y")
+                            )
                             st.session_state["result"] = PosterResult(
-                                image=poster,
-                                picks=picks,
-                                analysis=result.full_analysis,
+                                image=poster, picks=picks, slip=slip, report=report,
                                 filename=f"BetPro_{day_name}_Picks.png",
                             )
                             status.update(label="Bango liko tayari ✅", state="complete", expanded=False)
                 except Exception as exc:
                     st.error(f"Hitilafu: {exc}")
 
-    # Matokeo yanabaki hata baada ya kubonyeza download (session_state)
+        st.caption("Hakuna mechi yenye uhakika wa 100%. AI inapunguza hatari, haiiondoi. Weka kiasi unachoweza kukipoteza.")
+
     result: PosterResult | None = st.session_state.get("result")
     if result:
         st.subheader("🖼️ Bango Lako")
-        _, mid, _ = st.columns([1, 2, 1])
-        with mid:
+        poster_col, detail_col = st.columns([1, 1.2], gap="large")
+        with poster_col:
             st.image(result.image, width="stretch")
             st.download_button(
-                "📥 Pakua Bango (PNG)",
-                data=result.image,
-                file_name=result.filename,
-                mime="image/png",
-                width="stretch",
+                "📥 Pakua Bango (PNG)", data=result.image, file_name=result.filename,
+                mime="image/png", width="stretch",
             )
-        with st.expander("📄 Uchambuzi kamili"):
-            st.write(result.analysis)
+        with detail_col:
+            st.markdown("#### 📊 Uchambuzi wa Kila Chaguo")
+            for pick in result.picks:
+                with st.container(border=True):
+                    st.markdown(f"**★ {pick.label}** · {pick.match}")
+                    st.progress(min(max(pick.confidence, 0), 100) / 100, text=f"Usalama: {pick.confidence}% · Hatari: {pick.risk}")
+                    st.caption(f"Soko: {pick.market}")
+                    for reason in pick.reasons:
+                        st.markdown(f"- {reason}")
+            st.info(result.slip.summary)
 
-# ---------------- TAB 2 ----------------
+        with st.expander("🗑️ Mechi zilizotupwa na sababu"):
+            for item in result.slip.rejected or ["Hakuna taarifa."]:
+                st.markdown(f"- {item}")
+        with st.expander("📄 Ripoti kamili ya uchambuzi"):
+            st.write(result.report)
+
 with tab_scores:
     st.subheader(f"⚽ LiveScores & Ratiba ({date_short})")
     components.html(
