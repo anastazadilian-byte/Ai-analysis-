@@ -4,6 +4,7 @@ Inahitaji: streamlit>=1.50, google-genai, pillow>=10.1, pydantic>=2
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 from dataclasses import dataclass
@@ -43,7 +44,33 @@ FONT_PATHS = [
 
 PICK_COUNTS = {2: "🔥 Mechi 2", 4: "⭐ Mechi 4", 6: "🚂 Mechi 6"}
 
+REASONS = {
+    "quota": "Quota imeisha (429): kikomo cha matumizi cha key hii kimejaa",
+    "invalid_key": "API key si sahihi, imefutwa au imeisha muda",
+    "permission": "Key hii haina ruhusa ya kipengele au model hii (403)",
+    "not_found": "Model haipatikani kwa akaunti hii (404)",
+    "network": "Tatizo la mtandao au seva ya Google (jaribu tena baadaye)",
+    "other": "Kosa lingine",
+}
 
+ADVICE = {
+    "quota": "Weka API key mpya kwenye sehemu ya **🔑 API Key** hapo juu, au subiri kikomo kifunguke (cha dakika huisha baada ya dakika chache, cha siku huisha usiku).",
+    "invalid_key": "Angalia kama key imenakiliwa vyote bila nafasi, au tengeneza mpya kwenye ai.google.dev.",
+    "permission": "Washa Gemini API kwenye project ya key hiyo, au tumia key ya project nyingine.",
+    "not_found": "Model hiyo haipo kwa akaunti yako. App inajaribu zinazofuata zenyewe.",
+    "network": "Jaribu tena baada ya muda mfupi.",
+    "other": "Angalia ujumbe wa kosa hapo juu.",
+}
+
+OFFLINE_NOTE = (
+    "\n\nONYO: Huna ufikiaji wa mtandao sasa. Tumia ujuzi wako tu. Kwa mechi ambazo huna taarifa za "
+    "uhakika za majeruhi na fomu ya sasa, toa alama ya usalama ya chini na sema wazi kwamba haijathibitishwa."
+)
+
+
+# ============================================================
+# 2. MUUNDO WA DATA
+# ============================================================
 class Pick(BaseModel):
     label: str = Field(description="Maandishi mafupi ya bango (chini ya herufi 28), mfano 'Roma Win' au 'Over 1.5 Goals'")
     match: str = Field(description="Mechi kamili, mfano 'Roma vs Lazio'")
@@ -66,82 +93,120 @@ class PosterResult:
     slip: SlipResult
     report: str
     filename: str
+    used: str
+    searched: bool
 
 
-def get_api_key() -> str:
+@dataclass(frozen=True)
+class Attempt:
+    key_tag: str
+    model: str
+    kind: str
+    message: str
+
+
+class AllAttemptsFailed(RuntimeError):
+    def __init__(self, attempts: list[Attempt]):
+        self.attempts = attempts
+        super().__init__("Majaribio yote yameshindwa")
+
+
+# ============================================================
+# 3. API KEYS
+# ============================================================
+def key_tag(key: str) -> str:
+    return f"…{key[-4:]}"
+
+
+def collect_api_keys() -> list[str]:
+    """Key ya UI kwanza, kisha keys za Secrets, kisha environment. Hakuna marudio."""
+    keys: list[str] = []
+    typed = (st.session_state.get("custom_key") or "").strip()
+    if typed:
+        keys.append(typed)
     try:
-        key = st.secrets.get("GEMINI_API_KEY", "")
+        many = st.secrets.get("GEMINI_API_KEYS", None)
+        if many:
+            keys.extend(str(k).strip() for k in list(many))
+        single = st.secrets.get("GEMINI_API_KEY", "")
+        if single:
+            keys.append(str(single).strip())
     except Exception:
-        key = ""
-    return key or os.environ.get("GEMINI_API_KEY", "")
+        pass
+    env = os.environ.get("GEMINI_API_KEY", "").strip()
+    if env:
+        keys.append(env)
+    return list(dict.fromkeys(k for k in keys if k))
+
+
+def classify(exc: Exception) -> str:
+    text = str(exc).upper()
+    if "RESOURCE_EXHAUSTED" in text or text.startswith("429"):
+        return "quota"
+    if any(s in text for s in ("API_KEY_INVALID", "API KEY NOT VALID", "API KEY EXPIRED", "UNAUTHENTICATED")) or text.startswith("401"):
+        return "invalid_key"
+    if "PERMISSION_DENIED" in text or text.startswith("403"):
+        return "permission"
+    if "NOT_FOUND" in text or text.startswith("404"):
+        return "not_found"
+    if any(s in text for s in ("TIMEOUT", "TIMED OUT", "CONNECTION", "UNAVAILABLE", "503", "DEADLINE")):
+        return "network"
+    return "other"
+
+
+def explain(attempts: list[Attempt]) -> str:
+    """Muhtasari wa wazi: kila key ilishindwa kwa sababu gani."""
+    grouped: dict[tuple[str, str], list[str]] = {}
+    for a in attempts:
+        grouped.setdefault((a.key_tag, a.kind), []).append(a.model)
+    lines = [
+        f"- **Key {tag}**: {REASONS[kind]} _(models: {', '.join(models)})_"
+        for (tag, kind), models in grouped.items()
+    ]
+    kinds = list(dict.fromkeys(a.kind for a in attempts))
+    lines += ["", "**Cha kufanya:**"] + [f"- {ADVICE[k]}" for k in kinds]
+    return "\n".join(lines)
 
 
 # ============================================================
-# 2. MUONEKANO
-# ============================================================
-st.markdown(
-    """
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
-    :root { --bg:#070b16; --card:rgba(255,255,255,.04); --line:rgba(255,255,255,.09); --green:#10b981; --blue:#38bdf8; --muted:#94a3b8; }
-    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .stApp {
-        background:
-            radial-gradient(900px 500px at 10% -10%, rgba(16,185,129,.18), transparent 60%),
-            radial-gradient(800px 500px at 100% 0%, rgba(56,189,248,.14), transparent 55%),
-            var(--bg);
-        color: #f8fafc;
-    }
-    header[data-testid="stHeader"], #MainMenu, footer, .stAppDeployButton { display: none; }
-    .badge { display:inline-block; padding:4px 14px; border-radius:999px; font-size:.72rem; font-weight:800;
-             letter-spacing:1px; text-transform:uppercase; color:#fff; background:linear-gradient(135deg,#10b981,#059669); }
-    .hero-title { margin:10px 0 0; font-size:clamp(1.6rem,4vw,2.4rem); font-weight:800; line-height:1.15;
-                  background:linear-gradient(90deg,var(--green),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .hero-sub { color:var(--muted); margin:6px 0 22px; font-size:.95rem; }
-    div[data-testid="stVerticalBlockBorderWrapper"] { background:var(--card); border:1px solid var(--line) !important;
-                  border-radius:16px; backdrop-filter:blur(8px); }
-    .stButton > button[kind="primary"], .stDownloadButton > button {
-        background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:0; border-radius:12px; font-weight:800;
-        padding:.75rem 1.6rem; box-shadow:0 6px 20px rgba(16,185,129,.35); transition:transform .15s ease, box-shadow .15s ease; }
-    .stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover {
-        transform:translateY(-1px); box-shadow:0 10px 26px rgba(16,185,129,.45); color:#fff; }
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
-
-# ============================================================
-# 3. GEMINI: UCHAMBUZI WA HATUA MBILI
+# 4. GEMINI
 # ============================================================
 @st.cache_resource(show_spinner=False)
 def get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def available_models(_client: genai.Client) -> list[str]:
-    """Models ambazo akaunti yako inaruhusiwa kuzitumia sasa hivi."""
-    try:
-        return [m.name.removeprefix("models/") for m in _client.models.list()]
-    except Exception:
-        return []
-
-
-def generate(client: genai.Client, contents, config: types.GenerateContentConfig):
-    """Jaribu models zinazopatikana kwa mpangilio hadi mmoja ufanikiwe."""
-    names = available_models(client)
-    candidates = [m for m in MODELS if m in names] or MODELS
-    errors: list[str] = []
-    for model in candidates:
+def list_models(key: str, client: genai.Client) -> list[str]:
+    cache = st.session_state.setdefault("_models_cache", {})
+    digest = hashlib.sha256(key.encode()).hexdigest()
+    if digest not in cache:
         try:
-            response = client.models.generate_content(model=model, contents=contents, config=config)
-            if response.text or response.parsed:
-                return response
-            errors.append(f"{model}: jibu tupu")
-        except Exception as exc:
-            errors.append(f"{model}: {str(exc)[:250]}")
-    raise RuntimeError("Models zote zimeshindwa:\n\n" + "\n\n".join(f"- {e}" for e in errors))
+            cache[digest] = [m.name.removeprefix("models/") for m in client.models.list()]
+        except Exception:
+            return []
+    return cache[digest]
+
+
+def generate(keys: list[str], contents, config: types.GenerateContentConfig):
+    """Jaribu kila key, na kwa kila key models zake. Inarudisha (jibu, 'model · key')."""
+    attempts: list[Attempt] = []
+    for key in keys:
+        tag = key_tag(key)
+        client = get_client(key)
+        names = list_models(key, client)
+        candidates = [m for m in MODELS if m in names] or MODELS
+        for model in candidates:
+            try:
+                response = client.models.generate_content(model=model, contents=contents, config=config)
+                if response.text or response.parsed:
+                    return response, f"{model} · key {tag}"
+                attempts.append(Attempt(tag, model, "other", "jibu tupu"))
+            except Exception as exc:
+                kind = classify(exc)
+                attempts.append(Attempt(tag, model, kind, str(exc)[:250]))
+                if kind == "invalid_key":
+                    break  # key mbovu: hakuna haja ya kujaribu models zingine
+    raise AllAttemptsFailed(attempts)
 
 
 def research_prompt(day: str, date: str) -> str:
@@ -185,39 +250,73 @@ KAZI: Chagua mechi BORA ZA SIKU, zisizozidi {count}.
 """.strip()
 
 
-def research_matches(client: genai.Client, images: list[Image.Image], day: str, date: str) -> str:
+def research_matches(keys: list[str], images: list[Image.Image], day: str, date: str, use_search: bool):
+    """Inarudisha (ripoti, 'model · key', ilitumia_utafutaji)."""
     prompt = research_prompt(day, date)
-    search_config = types.GenerateContentConfig(
-        tools=[types.Tool(google_search=types.GoogleSearch())],
-        temperature=0.2,
-    )
-    try:
-        return generate(client, [prompt, *images], search_config).text or ""
-    except RuntimeError:
-        # Quota ya utafutaji imeisha: jaribu bila mtandao, kwa tahadhari zaidi
-        st.write("⚠️ Utafutaji wa mtandaoni umeshindikana (quota). Inaendelea bila mtandao, alama zitakuwa za tahadhari zaidi.")
-        offline_note = (
-            "\n\nONYO: Huna ufikiaji wa mtandao sasa. Tumia ujuzi wako tu. Kwa mechi ambazo huna taarifa za "
-            "uhakika za majeruhi na fomu ya sasa, toa alama ya usalama ya chini na sema wazi kwamba haijathibitishwa."
+    if use_search:
+        search_config = types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())], temperature=0.2
         )
-        plain_config = types.GenerateContentConfig(temperature=0.2)
-        return generate(client, [prompt + offline_note, *images], plain_config).text or ""
+        try:
+            response, used = generate(keys, [prompt, *images], search_config)
+            return response.text or "", used, True
+        except AllAttemptsFailed as exc:
+            if {a.kind for a in exc.attempts} <= {"invalid_key", "network"}:
+                raise
+            st.warning("🔎 Utafutaji wa mtandaoni umeshindikana. Sababu:\n\n" + explain(exc.attempts))
+            st.write("Inaendelea bila mtandao (alama zitakuwa za tahadhari zaidi)...")
+    plain_config = types.GenerateContentConfig(temperature=0.2)
+    response, used = generate(keys, [prompt + OFFLINE_NOTE, *images], plain_config)
+    return response.text or "", used, False
 
 
-def select_picks(client: genai.Client, report: str, count: int, min_conf: int) -> SlipResult:
+def select_picks(keys: list[str], report: str, count: int, min_conf: int) -> SlipResult:
     config = types.GenerateContentConfig(
-        response_mime_type="application/json",
-        response_schema=SlipResult,
-        temperature=0.2,
+        response_mime_type="application/json", response_schema=SlipResult, temperature=0.2
     )
-    response = generate(client, selection_prompt(report, count, min_conf), config)
+    response, _ = generate(keys, selection_prompt(report, count, min_conf), config)
     if isinstance(response.parsed, SlipResult):
         return response.parsed
     return SlipResult.model_validate_json(response.text)
 
 
 # ============================================================
-# 4. PICHA / BANGO
+# 5. MUONEKANO
+# ============================================================
+st.markdown(
+    """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
+    :root { --bg:#070b16; --card:rgba(255,255,255,.04); --line:rgba(255,255,255,.09); --green:#10b981; --blue:#38bdf8; --muted:#94a3b8; }
+    html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .stApp {
+        background:
+            radial-gradient(900px 500px at 10% -10%, rgba(16,185,129,.18), transparent 60%),
+            radial-gradient(800px 500px at 100% 0%, rgba(56,189,248,.14), transparent 55%),
+            var(--bg);
+        color: #f8fafc;
+    }
+    header[data-testid="stHeader"], #MainMenu, footer, .stAppDeployButton { display: none; }
+    .badge { display:inline-block; padding:4px 14px; border-radius:999px; font-size:.72rem; font-weight:800;
+             letter-spacing:1px; text-transform:uppercase; color:#fff; background:linear-gradient(135deg,#10b981,#059669); }
+    .hero-title { margin:10px 0 0; font-size:clamp(1.6rem,4vw,2.4rem); font-weight:800; line-height:1.15;
+                  background:linear-gradient(90deg,var(--green),var(--blue)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+    .hero-sub { color:var(--muted); margin:6px 0 22px; font-size:.95rem; }
+    div[data-testid="stVerticalBlockBorderWrapper"] { background:var(--card); border:1px solid var(--line) !important;
+                  border-radius:16px; backdrop-filter:blur(8px); }
+    .stButton > button[kind="primary"], .stDownloadButton > button {
+        background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:0; border-radius:12px; font-weight:800;
+        padding:.75rem 1.6rem; box-shadow:0 6px 20px rgba(16,185,129,.35); transition:transform .15s ease, box-shadow .15s ease; }
+    .stButton > button[kind="primary"]:hover, .stDownloadButton > button:hover {
+        transform:translateY(-1px); box-shadow:0 10px 26px rgba(16,185,129,.45); color:#fff; }
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
+# ============================================================
+# 6. PICHA / BANGO
 # ============================================================
 def load_font(size: int):
     for path in FONT_PATHS:
@@ -298,7 +397,7 @@ def prepare_images(files) -> list[Image.Image]:
 
 
 # ============================================================
-# 5. UI
+# 7. UI
 # ============================================================
 now = datetime.now(TZ)
 day_name = now.strftime("%A")
@@ -336,6 +435,30 @@ with tab_slip:
                 help="Mechi chini ya kiwango hiki zinatupwa kabisa. Juu zaidi = mechi chache lakini salama zaidi.",
             )
             title = st.text_input("Kichwa cha bango (hiari)", value=f"{day_name} Picks")
+            use_search = st.toggle(
+                "🔎 Tumia utafutaji wa mtandaoni",
+                value=True,
+                help="Unatoa uchambuzi bora zaidi lakini unatumia quota nyingi. Zima ukiishiwa quota.",
+            )
+
+    with st.expander("🔑 API Key (ikifika kikomo, weka mpya hapa)"):
+        st.text_input(
+            "Weka API key mpya (inatumika kwa kikao hiki tu, haihifadhiwi)",
+            type="password",
+            key="custom_key",
+            placeholder="AIza...",
+        )
+        keys = collect_api_keys()
+        if keys:
+            st.caption("Keys zinazotumika kwa mpangilio: " + ", ".join(key_tag(k) for k in keys))
+        else:
+            st.warning("Hakuna API key. Iweke hapa juu au kwenye Secrets.")
+        st.caption(
+            'Unaweza kuweka keys nyingi kwenye Secrets: `GEMINI_API_KEYS = ["key1", "key2"]`. '
+            "Ikiisha quota ya ya kwanza, app inahamia inayofuata yenyewe."
+        )
+
+    keys = collect_api_keys()
 
     if uploaded:
         images = prepare_images(uploaded)
@@ -343,18 +466,16 @@ with tab_slip:
             st.image(images, width=150)
 
         if st.button("🚀 Chambua na Unda Bango", type="primary", width="stretch"):
-            api_key = get_api_key()
-            if not api_key:
-                st.error("GEMINI_API_KEY haipo kwenye Secrets. Iweke kwanza.")
+            if not keys:
+                st.error("Hakuna API key. Iweke kwenye sehemu ya 🔑 API Key au kwenye Secrets.")
             else:
                 try:
-                    client = get_client(api_key)
                     with st.status("Uchambuzi wa kina unaendelea (inaweza kuchukua dakika 1-2)...", expanded=True) as status:
-                        st.write("🔎 Hatua 1: Inasoma mechi na kutafuta fomu, majeruhi, motisha na takwimu za sasa...")
-                        report = research_matches(client, images, day_name, date_short)
+                        st.write("🔎 Hatua 1: Inasoma mechi na kuchambua fomu, majeruhi, motisha na takwimu...")
+                        report, used, searched = research_matches(keys, images, day_name, date_short, use_search)
 
                         st.write("🎯 Hatua 2: Inachuja na kuchagua mechi bora tu...")
-                        slip = select_picks(client, report, count, min_conf)
+                        slip = select_picks(keys, report, count, min_conf)
                         picks = sorted(
                             [p for p in slip.picks if p.confidence >= min_conf],
                             key=lambda p: p.confidence,
@@ -376,17 +497,27 @@ with tab_slip:
                             )
                             st.session_state["result"] = PosterResult(
                                 image=poster, picks=picks, slip=slip, report=report,
-                                filename=f"BetPro_{day_name}_Picks.png",
+                                filename=f"BetPro_{day_name}_Picks.png", used=used, searched=searched,
                             )
                             status.update(label="Bango liko tayari ✅", state="complete", expanded=False)
+                except AllAttemptsFailed as exc:
+                    st.error("❌ Uchambuzi umeshindikana. Sababu kwa kila key:")
+                    st.markdown(explain(exc.attempts))
+                    with st.expander("Maelezo ya kiufundi"):
+                        for a in exc.attempts:
+                            st.code(f"{a.model} · key {a.key_tag} · {a.kind}\n{a.message}")
                 except Exception as exc:
-                    st.error(f"Hitilafu: {exc}")
+                    st.error(f"Hitilafu isiyotarajiwa: {exc}")
 
         st.caption("Hakuna mechi yenye uhakika wa 100%. AI inapunguza hatari, haiiondoi. Weka kiasi unachoweza kukipoteza.")
 
     result: PosterResult | None = st.session_state.get("result")
     if result:
         st.subheader("🖼️ Bango Lako")
+        st.caption(
+            f"Model: {result.used} · Utafutaji wa mtandaoni: "
+            f"{'umetumika ✅' if result.searched else 'haukutumika (alama ni za tahadhari)'}"
+        )
         poster_col, detail_col = st.columns([1, 1.2], gap="large")
         with poster_col:
             st.image(result.image, width="stretch")
@@ -399,7 +530,10 @@ with tab_slip:
             for pick in result.picks:
                 with st.container(border=True):
                     st.markdown(f"**★ {pick.label}** · {pick.match}")
-                    st.progress(min(max(pick.confidence, 0), 100) / 100, text=f"Usalama: {pick.confidence}% · Hatari: {pick.risk}")
+                    st.progress(
+                        min(max(pick.confidence, 0), 100) / 100,
+                        text=f"Usalama: {pick.confidence}% · Hatari: {pick.risk}",
+                    )
                     st.caption(f"Soko: {pick.market}")
                     for reason in pick.reasons:
                         st.markdown(f"- {reason}")
