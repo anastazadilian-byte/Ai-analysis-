@@ -88,11 +88,10 @@ class SlipResult(BaseModel):
 
 @dataclass(frozen=True)
 class PosterResult:
-    image: bytes
     picks: list[Pick]
     slip: SlipResult
     report: str
-    filename: str
+    title: str
     used: str
     searched: bool
 
@@ -339,51 +338,163 @@ def fit_font(draw: ImageDraw.ImageDraw, text: str, max_width: int, start: int, m
     return load_font(minimum)
 
 
-def make_background(size: tuple[int, int]) -> Image.Image:
-    if BACKGROUND_PHOTO.exists():
-        photo = ImageOps.exif_transpose(Image.open(BACKGROUND_PHOTO)).convert("RGBA")
-        photo = ImageOps.fit(photo, size, Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(2))
-        photo = ImageEnhance.Brightness(photo).enhance(0.35)
-        return Image.alpha_composite(photo, Image.new("RGBA", size, (5, 150, 60, 160)))
-    gradient = Image.linear_gradient("L").resize(size)
-    return ImageOps.colorize(gradient, black=(0, 120, 45), white=(0, 205, 75)).convert("RGBA")
+@dataclass(frozen=True)
+class Theme:
+    top: tuple[int, int, int]          # rangi ya juu ya mandharinyuma
+    bottom: tuple[int, int, int]       # rangi ya chini
+    accent: tuple[int, int, int]       # rangi kuu (namba, asilimia, pill)
+    on_accent: tuple[int, int, int]    # rangi ya maandishi juu ya accent
+    card: tuple[int, int, int, int]    # rangi ya kadi (RGBA)
+    border: tuple[int, int, int, int] | None
+    text: tuple[int, int, int]
+    subtext: tuple[int, int, int]
+    title: tuple[int, int, int]
+    foot: tuple[int, int, int]         # tarehe na maandishi ya chini
+    glow: bool
+    photo_tint: int                    # nguvu ya rangi juu ya picha yako
 
 
-def make_poster(labels: list[str], title: str, date_label: str) -> bytes:
+THEMES: dict[str, Theme] = {
+    "Neon Night": Theme(
+        top=(6, 10, 24), bottom=(8, 30, 48), accent=(16, 230, 140), on_accent=(4, 20, 14),
+        card=(255, 255, 255, 22), border=(16, 230, 140, 150), text=(255, 255, 255),
+        subtext=(160, 185, 205), title=(255, 255, 255), foot=(160, 185, 205), glow=True, photo_tint=215,
+    ),
+    "Gold VIP": Theme(
+        top=(10, 10, 10), bottom=(34, 25, 8), accent=(245, 190, 60), on_accent=(25, 18, 0),
+        card=(255, 255, 255, 16), border=(245, 190, 60, 170), text=(255, 246, 225),
+        subtext=(195, 175, 125), title=(245, 190, 60), foot=(195, 175, 125), glow=True, photo_tint=215,
+    ),
+    "Sunset": Theme(
+        top=(76, 29, 149), bottom=(234, 88, 12), accent=(255, 255, 255), on_accent=(76, 29, 149),
+        card=(255, 255, 255, 40), border=(255, 255, 255, 120), text=(255, 255, 255),
+        subtext=(255, 228, 212), title=(255, 255, 255), foot=(255, 228, 212), glow=True, photo_tint=170,
+    ),
+    "Classic White": Theme(
+        top=(0, 120, 45), bottom=(0, 205, 75), accent=(0, 0, 0), on_accent=(255, 255, 255),
+        card=(255, 255, 255, 255), border=None, text=(0, 0, 0),
+        subtext=(80, 80, 80), title=(0, 0, 0), foot=(255, 255, 255), glow=False, photo_tint=160,
+    ),
+}
+
+
+def make_canvas(theme: Theme, photo: bytes | None) -> Image.Image:
+    size = POSTER_SIZE
+    base = ImageOps.colorize(
+        Image.linear_gradient("L").resize(size), black=theme.top, white=theme.bottom
+    ).convert("RGBA")
+
+    if photo:
+        try:
+            img = ImageOps.exif_transpose(Image.open(io.BytesIO(photo))).convert("RGBA")
+            img = ImageOps.fit(img, size, Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(2))
+            img = ImageEnhance.Brightness(img).enhance(0.55)
+            base.putalpha(theme.photo_tint)
+            base = Image.alpha_composite(img, base)
+        except Exception:
+            pass  # picha mbovu: tumia gradient tu
+
+    if theme.glow:
+        glow = Image.new("RGBA", size, (0, 0, 0, 0))
+        gd = ImageDraw.Draw(glow)
+        gd.ellipse((-250, -250, 550, 450), fill=(*theme.accent, 70))
+        gd.ellipse((600, 1000, 1400, 1700), fill=(*theme.accent, 55))
+        base = Image.alpha_composite(base, glow.filter(ImageFilter.GaussianBlur(120)))
+    return base
+
+
+@st.cache_data(show_spinner=False, max_entries=32)
+def render_poster(
+    labels: tuple[str, ...],
+    matches: tuple[str, ...],
+    confs: tuple[int, ...],
+    title: str,
+    date_label: str,
+    theme_name: str,
+    show_conf: bool,
+    show_match: bool,
+    watermark: str,
+    photo: bytes | None,
+) -> bytes:
+    t = THEMES[theme_name]
     w, h = POSTER_SIZE
-    poster = make_background(POSTER_SIZE)
-    draw = ImageDraw.Draw(poster)
+    canvas = make_canvas(t, photo)
+    draw = ImageDraw.Draw(canvas)
 
-    draw.text((w // 2, 80), title, fill=(0, 0, 0), font=fit_font(draw, title, w - 160, 78), anchor="mt")
-    draw.text((w // 2, 185), date_label, fill=(255, 255, 255), font=load_font(28), anchor="mt")
+    # Pill ya juu + kichwa + tarehe
+    pill_text, pill_font = "BEST OF THE DAY", load_font(26)
+    left, _, right, _ = draw.textbbox((0, 0), pill_text, font=pill_font)
+    pw = (right - left) + 64
+    draw.rounded_rectangle((w // 2 - pw // 2, 70, w // 2 + pw // 2, 122), radius=26, fill=t.accent)
+    draw.text((w // 2, 96), pill_text, fill=t.on_accent, font=pill_font, anchor="mm")
+    draw.text((w // 2, 150), title, fill=t.title, font=fit_font(draw, title, w - 160, 88), anchor="mt")
+    draw.text((w // 2, 265), date_label, fill=t.foot, font=load_font(30), anchor="mt")
 
+    # Mpangilio wa kadi (unajirekebisha kulingana na idadi)
     n = max(1, len(labels))
-    top, reserved_bottom, gap = 260, 150, 36
-    available = h - top - reserved_bottom
-    card_h = min(130, (available - gap * (n - 1)) // n)
+    top, bottom_reserved, gap = 340, 190, 30
+    available = h - top - bottom_reserved
+    card_h = min(170, (available - gap * (n - 1)) // n)
     block_h = n * card_h + (n - 1) * gap
     y0 = top + max(0, (available - block_h) // 2)
-    cards = [(80, y0 + i * (card_h + gap), w - 80, y0 + i * (card_h + gap) + card_h) for i in range(n)]
+    rects = [(70, y0 + i * (card_h + gap), w - 70, y0 + i * (card_h + gap) + card_h) for i in range(n)]
 
-    shadow = Image.new("RGBA", POSTER_SIZE, (0, 0, 0, 0))
-    shadow_draw = ImageDraw.Draw(shadow)
-    for x1, y1, x2, y2 in cards:
-        shadow_draw.rounded_rectangle((x1, y1 + 12, x2, y2 + 12), radius=26, fill=(0, 0, 0, 120))
-    poster = Image.alpha_composite(poster, shadow.filter(ImageFilter.GaussianBlur(16)))
-    draw = ImageDraw.Draw(poster)
+    if t.card[3] > 200:  # kivuli kwa kadi imara tu
+        shadow = Image.new("RGBA", POSTER_SIZE, (0, 0, 0, 0))
+        sd = ImageDraw.Draw(shadow)
+        for x1, y1, x2, y2 in rects:
+            sd.rounded_rectangle((x1, y1 + 14, x2, y2 + 14), radius=34, fill=(0, 0, 0, 110))
+        canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(18)))
 
-    for (x1, y1, x2, y2), label in zip(cards, labels):
-        draw.rounded_rectangle((x1, y1, x2, y2), radius=26, fill=(255, 255, 255))
-        line = f"★  {label}"
-        draw.text(
-            ((x1 + x2) // 2, (y1 + y2) // 2), line, fill=(0, 0, 0),
-            font=fit_font(draw, line, (x2 - x1) - 80, 46), anchor="mm",
-        )
+    layer = Image.new("RGBA", POSTER_SIZE, (0, 0, 0, 0))
+    ld = ImageDraw.Draw(layer)
+    for rect in rects:
+        ld.rounded_rectangle(rect, radius=34, fill=t.card, outline=t.border, width=3 if t.border else 0)
+    canvas = Image.alpha_composite(canvas, layer)
+    draw = ImageDraw.Draw(canvas)
 
-    draw.text((w // 2, h - 70), "BETPRO TACTICAL SYNDICATE", fill=(255, 255, 255), font=load_font(26), anchor="mm")
+    # Maudhui ya kila kadi: namba | chaguo + mechi | asilimia
+    for i, ((x1, y1, x2, y2), label) in enumerate(zip(rects, labels)):
+        cy = (y1 + y2) // 2
+        d = int(card_h * 0.62)
+        cx = x1 + 34 + d // 2
+        draw.ellipse((cx - d // 2, cy - d // 2, cx + d // 2, cy + d // 2), fill=t.accent)
+        draw.text((cx, cy), str(i + 1), fill=t.on_accent, font=load_font(int(d * 0.55)), anchor="mm")
+
+        text_x = cx + d // 2 + 30
+        right_edge = x2 - 34
+        if show_conf:
+            conf_text = f"{confs[i]}%"
+            cf = load_font(max(22, int(card_h * 0.24)))
+            l, _, r, _ = draw.textbbox((0, 0), conf_text, font=cf)
+            pill_w, pill_h = (r - l) + 44, int(card_h * 0.38)
+            draw.rounded_rectangle(
+                (right_edge - pill_w, cy - pill_h // 2, right_edge, cy + pill_h // 2),
+                radius=pill_h // 2, fill=t.accent,
+            )
+            draw.text((right_edge - pill_w // 2, cy), conf_text, fill=t.on_accent, font=cf, anchor="mm")
+            right_edge -= pill_w + 24
+
+        max_w = right_edge - text_x
+        match_line = matches[i] if show_match and matches[i] else ""
+        label_font = fit_font(draw, label, max_w, int(card_h * 0.34), 20)
+        if match_line:
+            draw.text((text_x, cy - int(card_h * 0.12)), label, fill=t.text, font=label_font, anchor="lm")
+            match_font = fit_font(draw, match_line, max_w, int(card_h * 0.2), 16)
+            draw.text((text_x, cy + int(card_h * 0.2)), match_line, fill=t.subtext, font=match_font, anchor="lm")
+        else:
+            draw.text((text_x, cy), label, fill=t.text, font=label_font, anchor="lm")
+
+    # Chini: watermark + tahadhari ya uwajibikaji
+    mark = watermark.strip() or "BETPRO"
+    draw.text((w // 2, h - 110), mark, fill=t.foot, font=fit_font(draw, mark, w - 200, 32), anchor="mm")
+    draw.text(
+        (w // 2, h - 60), "18+  ·  Cheza kwa uwajibikaji  ·  Hakuna ushindi wa uhakika",
+        fill=t.foot, font=load_font(22), anchor="mm",
+    )
 
     buffer = io.BytesIO()
-    poster.convert("RGB").save(buffer, format="PNG", optimize=True)
+    canvas.convert("RGB").save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
 
 
@@ -492,12 +603,9 @@ with tab_slip:
                         else:
                             if len(picks) < count:
                                 st.write(f"ℹ️ Mechi {len(picks)} tu ndizo zilizofikia kiwango.")
-                            poster = make_poster(
-                                [p.label for p in picks], title or f"{day_name} Picks", now.strftime("%d %B %Y")
-                            )
                             st.session_state["result"] = PosterResult(
-                                image=poster, picks=picks, slip=slip, report=report,
-                                filename=f"BetPro_{day_name}_Picks.png", used=used, searched=searched,
+                                picks=picks, slip=slip, report=report,
+                                title=title or f"{day_name} Picks", used=used, searched=searched,
                             )
                             status.update(label="Bango liko tayari ✅", state="complete", expanded=False)
                 except AllAttemptsFailed as exc:
@@ -519,12 +627,45 @@ with tab_slip:
             f"{'umetumika ✅' if result.searched else 'haukutumika (alama ni za tahadhari)'}"
         )
         poster_col, detail_col = st.columns([1, 1.2], gap="large")
+
         with poster_col:
-            st.image(result.image, width="stretch")
+            with st.container(border=True):
+                st.markdown("##### 🎨 Badilisha muonekano (haitumii quota)")
+                theme_name = st.pills("Mtindo wa bango", list(THEMES), default="Neon Night") or "Neon Night"
+                opt_a, opt_b = st.columns(2)
+                show_conf = opt_a.toggle("Onyesha asilimia", value=True)
+                show_match = opt_b.toggle("Onyesha jina la mechi", value=True)
+                watermark = st.text_input("Watermark / jina lako", value="BETPRO TACTICAL SYNDICATE")
+                photo_file = st.file_uploader(
+                    "Picha yako ya mandharinyuma (hiari)", type=["png", "jpg", "jpeg"], key="bg_photo"
+                )
+
+            if photo_file:
+                photo = photo_file.getvalue()
+            elif BACKGROUND_PHOTO.exists():
+                photo = BACKGROUND_PHOTO.read_bytes()
+            else:
+                photo = None
+
+            poster = render_poster(
+                tuple(p.label for p in result.picks),
+                tuple(p.match for p in result.picks),
+                tuple(int(p.confidence) for p in result.picks),
+                result.title,
+                now.strftime("%d %B %Y"),
+                theme_name,
+                show_conf,
+                show_match,
+                watermark,
+                photo,
+            )
+            st.image(poster, width="stretch")
             st.download_button(
-                "📥 Pakua Bango (PNG)", data=result.image, file_name=result.filename,
+                "📥 Pakua Bango (PNG)", data=poster,
+                file_name=f"BetPro_{day_name}_{theme_name.replace(' ', '')}.png",
                 mime="image/png", width="stretch",
             )
+
         with detail_col:
             st.markdown("#### 📊 Uchambuzi wa Kila Chaguo")
             for pick in result.picks:
