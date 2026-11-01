@@ -29,7 +29,7 @@ st.set_page_config(
 )
 
 TZ = ZoneInfo("Africa/Dar_es_Salaam")  # saa za server mara nyingi ni UTC
-MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]
 BACKGROUND_PHOTO = Path("profile.jpg")
 POSTER_SIZE = (1080, 1350)
 
@@ -119,17 +119,29 @@ def get_client(api_key: str) -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def available_models(_client: genai.Client) -> list[str]:
+    """Models ambazo akaunti yako inaruhusiwa kuzitumia sasa hivi."""
+    try:
+        return [m.name.removeprefix("models/") for m in _client.models.list()]
+    except Exception:
+        return []
+
+
 def generate(client: genai.Client, contents, config: types.GenerateContentConfig):
-    """Jaribu models kwa mpangilio hadi mmoja ufanikiwe."""
-    last_error: Exception | None = None
-    for model in MODELS:
+    """Jaribu models zinazopatikana kwa mpangilio hadi mmoja ufanikiwe."""
+    names = available_models(client)
+    candidates = [m for m in MODELS if m in names] or MODELS
+    errors: list[str] = []
+    for model in candidates:
         try:
             response = client.models.generate_content(model=model, contents=contents, config=config)
             if response.text or response.parsed:
                 return response
+            errors.append(f"{model}: jibu tupu")
         except Exception as exc:
-            last_error = exc
-    raise RuntimeError(f"Models zote zimeshindwa. Kosa la mwisho: {last_error}")
+            errors.append(f"{model}: {str(exc)[:250]}")
+    raise RuntimeError("Models zote zimeshindwa:\n\n" + "\n\n".join(f"- {e}" for e in errors))
 
 
 def research_prompt(day: str, date: str) -> str:
