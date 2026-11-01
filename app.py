@@ -29,7 +29,7 @@ st.set_page_config(
 )
 
 TZ = ZoneInfo("Africa/Dar_es_Salaam")  # saa za server mara nyingi ni UTC
-MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]
+MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"]
 BACKGROUND_PHOTO = Path("profile.jpg")
 POSTER_SIZE = (1080, 1350)
 
@@ -186,12 +186,22 @@ KAZI: Chagua mechi BORA ZA SIKU, zisizozidi {count}.
 
 
 def research_matches(client: genai.Client, images: list[Image.Image], day: str, date: str) -> str:
-    config = types.GenerateContentConfig(
+    prompt = research_prompt(day, date)
+    search_config = types.GenerateContentConfig(
         tools=[types.Tool(google_search=types.GoogleSearch())],
         temperature=0.2,
     )
-    response = generate(client, [research_prompt(day, date), *images], config)
-    return response.text or ""
+    try:
+        return generate(client, [prompt, *images], search_config).text or ""
+    except RuntimeError:
+        # Quota ya utafutaji imeisha: jaribu bila mtandao, kwa tahadhari zaidi
+        st.write("⚠️ Utafutaji wa mtandaoni umeshindikana (quota). Inaendelea bila mtandao, alama zitakuwa za tahadhari zaidi.")
+        offline_note = (
+            "\n\nONYO: Huna ufikiaji wa mtandao sasa. Tumia ujuzi wako tu. Kwa mechi ambazo huna taarifa za "
+            "uhakika za majeruhi na fomu ya sasa, toa alama ya usalama ya chini na sema wazi kwamba haijathibitishwa."
+        )
+        plain_config = types.GenerateContentConfig(temperature=0.2)
+        return generate(client, [prompt + offline_note, *images], plain_config).text or ""
 
 
 def select_picks(client: genai.Client, report: str, count: int, min_conf: int) -> SlipResult:
