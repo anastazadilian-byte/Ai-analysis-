@@ -1,9 +1,14 @@
 
 import streamlit as st
 import pandas as pd
-from PIL import Image
-from datetime import date
-import io
+import pytesseract
+import re
+import os
+from PIL import Image, ImageOps, ImageEnhance
+
+# ==========================================
+# 1. APP CONFIGURATION
+# ==========================================
 
 st.set_page_config(
     page_title="AI Match Analyzer Pro",
@@ -11,459 +16,534 @@ st.set_page_config(
     layout="wide"
 )
 
-# -----------------------------
-# APP DESIGN
-# -----------------------------
-st.markdown("""
-<style>
-.stApp {background-color: #0b1420; color: #edf4fa;}
-[data-testid="stMetric"] {
-    background: #142536;
-    padding: 16px;
-    border-radius: 12px;
-    border: 1px solid #26394b;
-}
-.stButton button {
-    background: #13b981;
-    color: #05251b;
-    font-weight: bold;
-    border-radius: 8px;
-}
-</style>
-""", unsafe_allow_html=True)
+st.title("⚽ AI MATCH ANALYZER PRO")
+st.caption("Football Screenshot Reader & Match Analysis")
 
-# -----------------------------
-# SESSION DATA
-# -----------------------------
+st.info(
+    "Pakia screenshot ya LiveScore. Mfumo utajaribu "
+    "kusoma maandishi na kutambua mechi zilizopo."
+)
+
+# ==========================================
+# 2. SESSION STORAGE
+# ==========================================
+
 if "matches" not in st.session_state:
     st.session_state.matches = []
 
-st.title("⚽ AI MATCH ANALYZER PRO")
-st.caption("Football analysis workspace | Manual data analysis")
+if "ocr_text" not in st.session_state:
+    st.session_state.ocr_text = ""
 
-st.info(
-    "Mfumo huu unafanya uchambuzi kwa kutumia taarifa unazoingiza. "
-    "Hauhakikishi ushindi na hauunganishwi na LiveScore au bookmaker."
+if "detected_matches" not in st.session_state:
+    st.session_state.detected_matches = []
+
+
+# ==========================================
+# 3. TESSERACT CONFIGURATION
+# ==========================================
+
+# Windows: Badilisha path ikiwa Tesseract
+# imewekwa sehemu tofauti kwenye computer yako.
+
+WINDOWS_TESSERACT = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
 
-# -----------------------------
-# FUNCTIONS
-# -----------------------------
-def calculate_odds(home_odds, draw_odds, away_odds):
-    odds = [home_odds, draw_odds, away_odds]
-
-    if any(x <= 1 for x in odds):
-        raise ValueError("Odds lazima ziwe zaidi ya 1.00")
-
-    implied = [1 / x for x in odds]
-    total = sum(implied)
-
-    margin = (total - 1) * 100
-    fair_prob = [x / total for x in implied]
-    fair_odds = [1 / x for x in fair_prob]
-
-    return {
-        "margin": margin,
-        "implied": implied,
-        "fair_prob": fair_prob,
-        "fair_odds": fair_odds
-    }
+if os.name == "nt" and os.path.exists(WINDOWS_TESSERACT):
+    pytesseract.pytesseract.tesseract_cmd = WINDOWS_TESSERACT
 
 
-def calculate_ev(probability, odds):
-    return ((probability / 100) * odds - 1) * 100
+# ==========================================
+# 4. IMAGE PROCESSING
+# ==========================================
+
+def prepare_image(image):
+
+    image = ImageOps.exif_transpose(image)
+
+    image = image.convert("RGB")
+
+    # Kuongeza ukubwa kusaidia OCR
+    width, height = image.size
+
+    if width < 1600:
+        scale = 1600 / width
+        image = image.resize(
+            (1600, int(height * scale))
+        )
+
+    # Kuboresha maandishi
+    image = ImageOps.grayscale(image)
+
+    image = ImageEnhance.Contrast(image).enhance(2)
+
+    image = ImageEnhance.Sharpness(image).enhance(2)
+
+    return image
 
 
-def safe_number(value):
-    try:
-        return float(value)
-    except (ValueError, TypeError):
-        return 0.0
+# ==========================================
+# 5. READ TEXT FROM SCREENSHOT
+# ==========================================
+
+def read_screenshot(image):
+
+    processed = prepare_image(image)
+
+    text = pytesseract.image_to_string(
+        processed,
+        lang="eng",
+        config="--psm 6"
+    )
+
+    return text
 
 
-# -----------------------------
-# SIDEBAR
-# -----------------------------
-st.sidebar.title("⚙️ Navigation")
+# ==========================================
+# 6. DETECT MATCHES FROM OCR TEXT
+# ==========================================
+
+def detect_matches(text):
+
+    detected = []
+
+    lines = text.splitlines()
+
+    patterns = [
+        r"(.+?)\s+vs\.?\s+(.+)",
+        r"(.+?)\s+v\s+(.+)",
+        r"(.+?)\s+-\s+(.+)"
+    ]
+
+    for line in lines:
+
+        line = re.sub(r"\s+", " ", line).strip()
+
+        if not line or len(line) < 5:
+            continue
+
+        for pattern in patterns:
+
+            match = re.search(
+                pattern,
+                line,
+                re.IGNORECASE
+            )
+
+            if match:
+
+                home = match.group(1).strip()
+                away = match.group(2).strip()
+
+                # Ondoa mistari isiyo na majina ya timu
+                if len(home) < 2 or len(away) < 2:
+                    continue
+
+                if len(home) > 45 or len(away) > 45:
+                    continue
+
+                detected.append({
+                    "Home Team": home,
+                    "Away Team": away
+                })
+
+                break
+
+    # Ondoa duplicates
+    unique = []
+    seen = set()
+
+    for item in detected:
+
+        key = (
+            item["Home Team"].lower(),
+            item["Away Team"].lower()
+        )
+
+        if key not in seen:
+            seen.add(key)
+            unique.append(item)
+
+    return unique
+
+
+# ==========================================
+# 7. NAVIGATION
+# ==========================================
 
 page = st.sidebar.radio(
-    "Chagua ukurasa",
+    "MENU",
     [
         "Dashboard",
-        "Upload Screenshot",
+        "Read Screenshot",
         "Match Scanner",
         "Odds Calculator",
-        "Best Matches",
-        "Settings"
+        "Best Matches"
     ]
 )
 
-st.sidebar.markdown("---")
-st.sidebar.caption("AI Match Analyzer Pro")
-st.sidebar.caption("Free manual-analysis version")
 
-# -----------------------------
-# DASHBOARD
-# -----------------------------
+# ==========================================
+# 8. DASHBOARD
+# ==========================================
+
 if page == "Dashboard":
 
     st.subheader("Dashboard")
 
-    total_matches = len(st.session_state.matches)
-
     col1, col2, col3 = st.columns(3)
 
-    col1.metric("Matches Added", total_matches)
-    col2.metric("Data Source", "Manual")
-    col3.metric("API Connection", "Not connected")
+    col1.metric(
+        "Matches Saved",
+        len(st.session_state.matches)
+    )
+
+    col2.metric(
+        "Matches Detected",
+        len(st.session_state.detected_matches)
+    )
+
+    col3.metric(
+        "OCR System",
+        "Ready"
+    )
 
     st.markdown("---")
-    st.subheader("Recent Matches")
+
+    st.subheader("Saved Matches")
 
     if st.session_state.matches:
-        df = pd.DataFrame(st.session_state.matches)
-        st.dataframe(df, use_container_width=True)
-    else:
-        st.info(
-            "Bado hujaongeza mechi. Nenda Upload Screenshot "
-            "au Match Scanner kuanza."
+
+        st.dataframe(
+            pd.DataFrame(st.session_state.matches),
+            use_container_width=True
         )
 
-# -----------------------------
-# SCREENSHOT UPLOAD
-# -----------------------------
-elif page == "Upload Screenshot":
+    else:
 
-    st.subheader("📷 Upload LiveScore Screenshot")
+        st.info("Bado hakuna mechi zilizohifadhiwa.")
+
+
+# ==========================================
+# 9. SCREENSHOT READER
+# ==========================================
+
+elif page == "Read Screenshot":
+
+    st.subheader("📷 Read LiveScore Screenshot")
 
     uploaded_file = st.file_uploader(
-        "Chagua screenshot ya mechi",
+        "Upload LiveScore screenshot",
         type=["png", "jpg", "jpeg", "webp"]
     )
 
     if uploaded_file:
+
         image = Image.open(uploaded_file)
+
         st.image(
             image,
-            caption="Screenshot yako",
+            caption="Uploaded screenshot",
             use_container_width=True
         )
 
-        st.warning(
-            "Picha inaonyeshwa tu. Mfumo huu bado hauna OCR "
-            "ya kusoma majina ya timu moja kwa moja."
+        if st.button("🔍 READ MATCHES FROM IMAGE"):
+
+            try:
+
+                with st.spinner("Reading screenshot..."):
+
+                    extracted_text = read_screenshot(image)
+
+                    detected = detect_matches(extracted_text)
+
+                    st.session_state.ocr_text = extracted_text
+
+                    st.session_state.detected_matches = detected
+
+                st.success("Screenshot imesomwa.")
+
+            except Exception as error:
+
+                st.error(
+                    "OCR imeshindwa. Hakikisha Tesseract "
+                    "imewekwa kwenye computer yako."
+                )
+
+                st.code(str(error))
+
+    # OCR RESULTS
+    if st.session_state.ocr_text:
+
+        st.markdown("---")
+
+        st.subheader("1. Text Read From Image")
+
+        st.text_area(
+            "OCR Text",
+            value=st.session_state.ocr_text,
+            height=180
         )
 
-    st.markdown("---")
-    st.subheader("Ingiza taarifa za mechi")
+        st.subheader("2. Detected Matches")
 
-    with st.form("upload_match_form"):
+        if st.session_state.detected_matches:
 
-        home = st.text_input("Home Team")
-        away = st.text_input("Away Team")
-        league = st.text_input("League")
-        match_date = st.date_input("Match Date", value=date.today())
+            df = pd.DataFrame(
+                st.session_state.detected_matches
+            )
 
-        submitted = st.form_submit_button("Add Match")
+            edited_df = st.data_editor(
+                df,
+                use_container_width=True,
+                num_rows="dynamic"
+            )
 
-        if submitted:
-            if not home.strip() or not away.strip():
-                st.error("Weka majina ya timu zote mbili.")
-            else:
-                st.session_state.matches.append({
-                    "Home": home.strip(),
-                    "Away": away.strip(),
-                    "League": league.strip(),
-                    "Date": str(match_date),
-                    "Status": "Awaiting analysis"
-                })
+            if st.button("SAVE DETECTED MATCHES"):
 
-                st.success("Mechi imeongezwa kwenye mfumo.")
+                for _, row in edited_df.iterrows():
 
-# -----------------------------
-# MATCH SCANNER
-# -----------------------------
+                    home = str(row["Home Team"]).strip()
+                    away = str(row["Away Team"]).strip()
+
+                    if home and away:
+
+                        st.session_state.matches.append({
+                            "Home": home,
+                            "Away": away,
+                            "Source": "Screenshot OCR"
+                        })
+
+                st.success("Mechi zimehifadhiwa.")
+
+        else:
+
+            st.warning(
+                "OCR imesoma maandishi lakini haijatambua "
+                "muundo wa mechi. Unaweza kunakili majina "
+                "kutoka kwenye OCR Text na kuyajaza mwenyewe."
+            )
+
+
+# ==========================================
+# 10. MATCH SCANNER
+# ==========================================
+
 elif page == "Match Scanner":
 
     st.subheader("🔍 Match Performance Scanner")
 
-    st.write(
-        "Ingiza takwimu za mechi. Tumia wastani wa mechi "
-        "tano zilizopita pale inapowezekana."
-    )
+    if st.session_state.matches:
 
-    with st.form("scanner_form"):
+        match_options = [
+            f"{m['Home']} vs {m['Away']}"
+            for m in st.session_state.matches
+        ]
 
-        col1, col2 = st.columns(2)
+        selected = st.selectbox(
+            "Select Match",
+            match_options
+        )
 
-        with col1:
-            home = st.text_input("Home Team")
-            home_points = st.number_input(
-                "Home last 5 points (0–15)",
-                min_value=0,
-                max_value=15,
-                value=0
-            )
-            home_scored = st.number_input(
-                "Home goals scored per match",
-                min_value=0.0,
-                max_value=10.0,
-                value=0.0
-            )
-            home_conceded = st.number_input(
-                "Home goals conceded per match",
-                min_value=0.0,
-                max_value=10.0,
-                value=0.0
-            )
+        selected_index = match_options.index(selected)
 
-        with col2:
-            away = st.text_input("Away Team")
-            away_points = st.number_input(
-                "Away last 5 points (0–15)",
-                min_value=0,
-                max_value=15,
-                value=0
-            )
-            away_scored = st.number_input(
-                "Away goals scored per match",
-                min_value=0.0,
-                max_value=10.0,
-                value=0.0
-            )
-            away_conceded = st.number_input(
-                "Away goals conceded per match",
-                min_value=0.0,
-                max_value=10.0,
-                value=0.0
-            )
+        selected_match = st.session_state.matches[
+            selected_index
+        ]
 
-        analyze = st.form_submit_button("Analyze Match")
+        home = selected_match["Home"]
+        away = selected_match["Away"]
 
-    if analyze:
+    else:
 
-        if not home.strip() or not away.strip():
-            st.error("Weka majina ya timu zote mbili.")
+        st.info("Hakuna mechi. Soma screenshot kwanza.")
+
+        home = st.text_input("Home Team")
+        away = st.text_input("Away Team")
+
+    st.markdown("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        st.write("HOME TEAM")
+
+        home_points = st.number_input(
+            "Last 5 points",
+            min_value=0,
+            max_value=15,
+            value=0
+        )
+
+        home_goals = st.number_input(
+            "Goals scored per match",
+            min_value=0.0,
+            value=0.0
+        )
+
+        home_conceded = st.number_input(
+            "Goals conceded per match",
+            min_value=0.0,
+            value=0.0
+        )
+
+    with col2:
+
+        st.write("AWAY TEAM")
+
+        away_points = st.number_input(
+            "Last 5 points ",
+            min_value=0,
+            max_value=15,
+            value=0
+        )
+
+        away_goals = st.number_input(
+            "Goals scored per match ",
+            min_value=0.0,
+            value=0.0
+        )
+
+        away_conceded = st.number_input(
+            "Goals conceded per match ",
+            min_value=0.0,
+            value=0.0
+        )
+
+    if st.button("ANALYZE MATCH"):
+
+        if not home or not away:
+
+            st.error("Chagua mechi kwanza.")
 
         else:
-            form_difference = home_points - away_points
-            total_goals = home_scored + away_scored
 
-            performance_score = (
+            form_difference = home_points - away_points
+
+            total_goals = home_goals + away_goals
+
+            score = (
                 50
                 + form_difference * 1.6
                 + (total_goals - 2.4) * 5
-                - (home_conceded + away_conceded - 2.2) * 2
+                - (
+                    home_conceded + away_conceded - 2.2
+                ) * 2
             )
 
-            performance_score = max(
-                0,
-                min(100, round(performance_score))
-            )
-
-            if total_goals >= 2.8:
-                goal_trend = "Higher scoring trend"
-            elif total_goals <= 1.8:
-                goal_trend = "Lower scoring trend"
-            else:
-                goal_trend = "Balanced trend"
-
-            if form_difference > 1:
-                form_edge = f"{home} form advantage"
-            elif form_difference < -1:
-                form_edge = f"{away} form advantage"
-            else:
-                form_edge = "No clear form advantage"
-
-            if abs(form_difference) < 2:
-                risk = "HIGH"
-            else:
-                risk = "MEDIUM"
+            score = max(0, min(100, round(score)))
 
             st.markdown("---")
-            st.subheader("Analysis Result")
 
-            c1, c2, c3 = st.columns(3)
+            st.subheader(f"{home} vs {away}")
 
-            c1.metric(
-                "Performance Index",
-                f"{performance_score}/100"
+            st.metric(
+                "Illustrative Performance Index",
+                f"{score}/100"
             )
-            c2.metric("Goal Trend", goal_trend)
-            c3.metric("Risk Flag", risk)
 
-            st.write("**Form assessment:**", form_edge)
+            st.write(
+                "Goal trend:",
+                "Higher" if total_goals >= 2.8
+                else "Lower" if total_goals <= 1.8
+                else "Balanced"
+            )
+
+            st.write(
+                "Form advantage:",
+                home if form_difference > 1
+                else away if form_difference < -1
+                else "No clear advantage"
+            )
 
             st.warning(
-                "Performance Index ni alama ya mfano inayotokana "
-                "na takwimu ulizoingiza. Si probability ya kushinda, "
-                "si utabiri uliothibitishwa, wala si AI model iliyofundishwa."
+                "Hii ni alama ya mfano, si probability "
+                "iliyothibitishwa wala utabiri wa uhakika."
             )
 
-# -----------------------------
-# ODDS CALCULATOR
-# -----------------------------
+
+# ==========================================
+# 11. ODDS CALCULATOR
+# ==========================================
+
 elif page == "Odds Calculator":
 
     st.subheader("📊 1X2 Odds Calculator")
 
-    st.write("Ingiza odds za Home Win, Draw na Away Win.")
+    h = st.number_input(
+        "Home odds",
+        min_value=1.01,
+        value=2.10
+    )
 
-    with st.form("odds_form"):
+    d = st.number_input(
+        "Draw odds",
+        min_value=1.01,
+        value=3.40
+    )
 
-        col1, col2, col3 = st.columns(3)
+    a = st.number_input(
+        "Away odds",
+        min_value=1.01,
+        value=3.60
+    )
 
-        home_odds = col1.number_input(
-            "Home Win Odds",
-            min_value=1.01,
-            value=2.10,
-            step=0.01
+    if st.button("CALCULATE"):
+
+        odds = [h, d, a]
+
+        implied = [1 / x for x in odds]
+
+        total = sum(implied)
+
+        margin = (total - 1) * 100
+
+        fair_prob = [
+            (x / total) * 100 for x in implied
+        ]
+
+        fair_odds = [
+            1 / (x / total) for x in implied
+        ]
+
+        result = pd.DataFrame({
+            "Outcome": [
+                "Home Win",
+                "Draw",
+                "Away Win"
+            ],
+            "Odds": odds,
+            "Implied Probability (%)": [
+                x * 100 for x in implied
+            ],
+            "Fair Probability (%)": fair_prob,
+            "Fair Odds": fair_odds
+        })
+
+        st.metric(
+            "Bookmaker Margin",
+            f"{margin:.2f}%"
         )
 
-        draw_odds = col2.number_input(
-            "Draw Odds",
-            min_value=1.01,
-            value=3.40,
-            step=0.01
+        st.dataframe(
+            result.round(2),
+            use_container_width=True
         )
 
-        away_odds = col3.number_input(
-            "Away Win Odds",
-            min_value=1.01,
-            value=3.60,
-            step=0.01
+        st.info(
+            "Fair odds zinatokana na kuondoa overround "
+            "ya bookmaker kwa njia ya normalization."
         )
 
-        st.markdown("**Your estimated probabilities (%)**")
 
-        p1, p2, p3 = st.columns(3)
+# ==========================================
+# 12. BEST MATCHES
+# ==========================================
 
-        home_probability = p1.number_input(
-            "Home probability",
-            min_value=0.0,
-            max_value=100.0,
-            value=45.0
-        )
-
-        draw_probability = p2.number_input(
-            "Draw probability",
-            min_value=0.0,
-            max_value=100.0,
-            value=28.0
-        )
-
-        away_probability = p3.number_input(
-            "Away probability",
-            min_value=0.0,
-            max_value=100.0,
-            value=27.0
-        )
-
-        calculate = st.form_submit_button("Calculate Odds & EV")
-
-    if calculate:
-
-        try:
-            result = calculate_odds(
-                home_odds,
-                draw_odds,
-                away_odds
-            )
-
-            st.markdown("---")
-            st.subheader("Bookmaker Analysis")
-
-            st.metric(
-                "Bookmaker Margin",
-                f"{result['margin']:.2f}%"
-            )
-
-            if result["margin"] > 0:
-                st.caption(
-                    "Margin inaonyesha kiasi cha overround "
-                    "kilichopo kwenye odds."
-                )
-
-            names = ["Home Win", "Draw", "Away Win"]
-
-            table = []
-
-            for i in range(3):
-                ev = calculate_ev(
-                    [
-                        home_probability,
-                        draw_probability,
-                        away_probability
-                    ][i],
-                    [
-                        home_odds,
-                        draw_odds,
-                        away_odds
-                    ][i]
-                )
-
-                table.append({
-                    "Outcome": names[i],
-                    "Bookmaker Odds": [
-                        home_odds,
-                        draw_odds,
-                        away_odds
-                    ][i],
-                    "Implied Probability": (
-                        result["implied"][i] * 100
-                    ),
-                    "Fair Probability": (
-                        result["fair_prob"][i] * 100
-                    ),
-                    "Fair Odds": result["fair_odds"][i],
-                    "Your Estimated Probability": [
-                        home_probability,
-                        draw_probability,
-                        away_probability
-                    ][i],
-                    "EV (%)": ev
-                })
-
-            df = pd.DataFrame(table)
-
-            st.dataframe(
-                df.round(2),
-                use_container_width=True,
-                hide_index=True
-            )
-
-            probability_total = (
-                home_probability
-                + draw_probability
-                + away_probability
-            )
-
-            if abs(probability_total - 100) > 0.1:
-                st.error(
-                    f"Probabilities zako ni {probability_total:.1f}%. "
-                    "Jumla inapaswa kuwa 100%."
-                )
-            else:
-                st.success(
-                    "Probabilities zako zina jumla ya 100%."
-                )
-
-            st.warning(
-                "EV ni makadirio yanayotegemea probability "
-                "uliyoingiza. EV chanya haimaanishi ushindi "
-                "ni wa uhakika. Hakikisha probability yako "
-                "ina msingi wa takwimu."
-            )
-
-        except ValueError as error:
-            st.error(str(error))
-
-# -----------------------------
-# BEST MATCHES
-# -----------------------------
 elif page == "Best Matches":
 
-    st.subheader("⭐ My Match List")
+    st.subheader("⭐ Best Matches")
 
     if st.session_state.matches:
 
@@ -471,53 +551,30 @@ elif page == "Best Matches":
 
         st.dataframe(
             df,
-            use_container_width=True,
-            hide_index=True
+            use_container_width=True
         )
 
         csv = df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            "Download Matches CSV",
+            "DOWNLOAD MATCHES",
             data=csv,
-            file_name="my_matches.csv",
+            file_name="matches.csv",
             mime="text/csv"
         )
 
-        if st.button("Clear All Matches"):
-            st.session_state.matches = []
-            st.rerun()
-
     else:
-        st.info("Bado hakuna mechi zilizoongezwa.")
 
-# -----------------------------
-# SETTINGS
-# -----------------------------
-elif page == "Settings":
+        st.info("Bado hakuna mechi zilizohifadhiwa.")
 
-    st.subheader("⚙️ System Settings")
 
-    st.write("**Current version:** Free manual-analysis prototype")
-    st.write("**Football API:** Not connected")
-    st.write("**Automatic screenshot OCR:** Not connected")
-    st.write("**AI model:** Not connected")
-    st.write("**Database:** Session storage only")
-
-    st.warning(
-        "Taarifa za mechi zilizowekwa kwenye session zinaweza "
-        "kupotea ukifunga au kuanzisha upya app. CSV download "
-        "inaweza kusaidia kuhifadhi orodha yako."
-    )
-
-    st.markdown("---")
-    st.write(
-        "Toleo hili halina gharama ya API. Baadaye unaweza "
-        "kuongeza database, OCR na data provider ikiwa utahitaji."
-    )
+# ==========================================
+# 13. FOOTER
+# ==========================================
 
 st.markdown("---")
+
 st.caption(
-    "AI Match Analyzer Pro | Educational analysis tool | "
+    "AI Match Analyzer Pro | Free OCR prototype | "
     "No guaranteed betting outcomes"
 )
