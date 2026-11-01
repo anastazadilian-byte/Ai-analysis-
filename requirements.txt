@@ -2,3 +2,4 @@ streamlit>=1.50
 google-genai>=1.0
 pillow>=10.1
 pydantic>=2
+pandas>=2
