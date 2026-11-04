@@ -83,31 +83,43 @@ st.markdown('<span class="badge">⚡ BETPRO TACTICAL TERMINAL</span>', unsafe_al
 st.markdown('<p class="title-text">Kichambuzi cha Mechi & Jenereta ya Bango la Picha</p>', unsafe_allow_html=True)
 st.write("Pakia screenshot ya mechi za leo, AI itafanya uchambuzi wa kina na kukutengenezea bango safi lenye vibao vyeupe tayari kupostiwa!")
 
-# FUNCTION YA KUITA AI YENYE MFUMO WA KUKWEPA FOLENI (503 ERROR FIX)
+# FUNCTION YA KUITA AI INAYOTAFUTA MODELS ZILIZO HAI MOJA KWA MOJA
 def get_ai_analysis(client, contents):
-    # Orodha ya matoleo halisi ya Google yatakayojaribiwa moja baada ya jingine
-    valid_models = [
-        "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-flash"
-    ]
-    
+    # 1. Uliza Google models zilizopo kwenye hii API key sasa hivi
+    active_models = []
+    try:
+        for m in client.models.list():
+            m_name = getattr(m, 'name', '') or str(m)
+            # Epuka matoleo ya zamani yaliyofutwa (kama 1.5)
+            if "1.5" not in m_name:
+                active_models.append(m_name)
+    except Exception:
+        pass
+
+    # Kipaumbele kwa models za Flash (haraka na nzuri sana kwa kusoma picha)
+    flash_models = [m for m in active_models if "flash" in m.lower()]
+    other_models = [m for m in active_models if m not in flash_models]
+    final_list = flash_models + other_models
+
+    # Kama orodha haikurudi, tumia matoleo mapya yaliyopo rasmi
+    if not final_list:
+        final_list = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"]
+
     last_error = None
-    for model_name in valid_models:
-        for attempt in range(2): # Jaribu mara 2 kwa kila toleo kama kuna msongamano
+    for model_name in final_list:
+        for attempt in range(2):
             try:
                 res = client.models.generate_content(model=model_name, contents=contents)
                 if res and res.text:
                     return res.text
             except Exception as e:
                 last_error = e
-                time.sleep(1.5) # Subiri sekunde 1.5 kabla ya kurukia toleo jingine
+                time.sleep(1)
                 continue
-                
-    raise last_error if last_error else Exception("Mifumo ya AI ina msongamano mkubwa kwa sasa, jaribu tena baada ya sekunde chache.")
 
-# TABS MBILI
+    raise last_error if last_error else Exception("Mifumo ya AI haipatikani kwa sasa.")
+
+# TABS MBILI TU
 tab1, tab2 = st.tabs(["📸 Kichambuzi cha Mechi & Bango", "⚽ LiveScores Mubashara"])
 
 # ================= TAB 1: UCHAMBUZI =================
@@ -196,14 +208,13 @@ with tab1:
                                 if clean:
                                     banner_items.append(clean)
                         else:
-                            # Kama AI ikiruka muundo, chukua mistari ya kwanza
                             lines = [l.strip() for l in result_text.split("\n") if l.strip()]
-                            banner_items = [l.replace("★", "").replace("*", "") for l in lines[:4]]
+                            banner_items = [l.replace("★", "").replace("*", "") for l in lines[:6]]
 
                         st.success("✅ Uchambuzi na Bango Vimekamilika!")
                         st.markdown("---")
                         
-                        # ================= HTML5 CANVAS POSTER (INASHUKA KAMA PICHA) =================
+                        # ================= HTML5 CANVAS POSTER =================
                         st.subheader("🖼️ Bango Lako la Picha (Tayari Kupakuliwa)")
                         
                         strips_html = ""
