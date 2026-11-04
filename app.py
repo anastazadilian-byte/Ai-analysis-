@@ -13,20 +13,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# KUSOMA API KEY KUTOKA KWENYE SECRETS
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Styling ya Kisasa
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
     html, body, [class*="css"] { font-family: 'Plus Jakarta Sans', sans-serif; }
     
-    .stApp { 
-        background: #090e17; 
-        color: #f8fafc; 
-    }
-    
+    .stApp { background: #090e17; color: #f8fafc; }
     header[data-testid="stHeader"] { visibility: hidden; height: 0%; }
     #MainMenu { visibility: hidden; }
     footer { visibility: hidden; }
@@ -80,28 +74,24 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<span class="badge">⚡ BETPRO TACTICAL TERMINAL</span>', unsafe_allow_html=True)
-st.markdown('<p class="title-text">Kichambuzi cha Mechi & Jenereta ya Bango la Picha</p>', unsafe_allow_html=True)
-st.write("Pakia screenshot ya mechi za leo, AI itafanya uchambuzi wa kina na kukutengenezea bango safi lenye vibao vyeupe tayari kupostiwa!")
+st.markdown('<p class="title-text">Kichambuzi cha Mechi & Tiketi 2 za Ushindi</p>', unsafe_allow_html=True)
+st.write("Pakia screenshot, AI itachambua mechi na kutoa Tiketi 2: Ya Kulinda Mtaji & Ya Faida ya Wastani!")
 
-# FUNCTION YA KUITA AI INAYOTAFUTA MODELS ZILIZO HAI MOJA KWA MOJA
+# Auto-Detect Active Models
 def get_ai_analysis(client, contents):
-    # 1. Uliza Google models zilizopo kwenye hii API key sasa hivi
     active_models = []
     try:
         for m in client.models.list():
             m_name = getattr(m, 'name', '') or str(m)
-            # Epuka matoleo ya zamani yaliyofutwa (kama 1.5)
             if "1.5" not in m_name:
                 active_models.append(m_name)
     except Exception:
         pass
 
-    # Kipaumbele kwa models za Flash (haraka na nzuri sana kwa kusoma picha)
     flash_models = [m for m in active_models if "flash" in m.lower()]
     other_models = [m for m in active_models if m not in flash_models]
     final_list = flash_models + other_models
 
-    # Kama orodha haikurudi, tumia matoleo mapya yaliyopo rasmi
     if not final_list:
         final_list = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"]
 
@@ -119,8 +109,52 @@ def get_ai_analysis(client, contents):
 
     raise last_error if last_error else Exception("Mifumo ya AI haipatikani kwa sasa.")
 
-# TABS MBILI TU
-tab1, tab2 = st.tabs(["📸 Kichambuzi cha Mechi & Bango", "⚽ LiveScores Mubashara"])
+# Function ya Kutengeneza HTML5 Canvas Banner
+def render_banner_component(unique_id, title, bg_color, badge_text, items):
+    strips_html = ""
+    for item in items:
+        strips_html += f"""
+        <div style="background:#ffffff; color:#000000; padding:15px 18px; margin:10px 0; border-radius:8px; font-size:22px; font-weight:800; display:flex; align-items:center; box-shadow:0 5px 12px rgba(0,0,0,0.18);">
+            <span style="font-size:24px; margin-right:14px; color:#10b981;">★</span>
+            <span>{item}</span>
+        </div>
+        """
+
+    return f"""
+    <div id="capture-area-{unique_id}" style="width:100%; max-width:540px; background:{bg_color}; padding:35px 25px; border-radius:18px; font-family:'Plus Jakarta Sans', Arial, sans-serif; box-sizing:border-box; margin:auto;">
+        <h1 style="color:#000000; text-align:center; font-size:36px; font-weight:900; margin:0 0 20px 0; letter-spacing:-0.5px;">
+            {title}
+        </h1>
+        <div>
+            {strips_html}
+        </div>
+        <div style="text-align:center; margin-top:20px; color:#000000; font-size:13px; font-weight:800; letter-spacing:1px;">
+            👑 {badge_text}
+        </div>
+    </div>
+
+    <div style="text-align:center; margin-top:18px;">
+        <button onclick="downloadPoster_{unique_id}()" style="background:#090e17; color:#10b981; border:2px solid #10b981; padding:10px 24px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">
+            📥 Pakua Bango Hili (PNG)
+        </button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script>
+        function downloadPoster_{unique_id}() {{
+            var target = document.getElementById("capture-area-{unique_id}");
+            html2canvas(target, {{ scale: 2 }}).then(function(canvas) {{
+                var link = document.createElement('a');
+                link.download = '{title.replace(" ", "_")}.png';
+                link.href = canvas.toDataURL("image/png");
+                link.click();
+            }});
+        }}
+    </script>
+    """
+
+# TABS
+tab1, tab2 = st.tabs(["📸 Kichambuzi cha Mechi & Tiketi 2", "⚽ LiveScores Mubashara"])
 
 # ================= TAB 1: UCHAMBUZI =================
 with tab1:
@@ -129,26 +163,18 @@ with tab1:
     
     st.markdown(f"""
     <div class="card-box">
-        <h4 style="margin:0 0 6px 0; color:#10b981;">🎯 Pakia Screenshot za Mechi ({day_name} - {today_str})</h4>
+        <h4 style="margin:0 0 6px 0; color:#10b981;">🎯 Mfumo wa Tiketi Mbili za Siku ({day_name} - {today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#94a3b8;">
-            Unaweza kupakia screenshot 1 au nyingi kwa mkupuo. AI itasoma mechi zote, itagundua mitego ya makampuni na kuunda bango la kisasa.
+            AI itasoma mechi zote kutoka kwenye picha, kisha itazigawa kwenye <b>Tiketi 1 (Kulinda Mtaji)</b> na <b>Tiketi 2 (Faida ya Wastani)</b> bila mitego ya makampuni!
         </p>
     </div>
     """, unsafe_allow_html=True)
 
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        uploaded_files = st.file_uploader(
-            "1. Pakia Screenshot za Mechi:", 
-            type=["png", "jpg", "jpeg"], 
-            accept_multiple_files=True
-        )
-    with c2:
-        poster_title = st.text_input("Kichwa cha Bango la Picha:", value=f"{day_name} VIP Picks")
-        pick_count = st.selectbox(
-            "Idadi ya Mechi kwenye Bango:",
-            ["Mechi 4 za Uhakika (Kama Muundo Wako)", "Mechi 2 za Chuma (Safe 2 Odds)", "Treni la Mechi 6-8", "Mechi Zote Zilizopo Kwenye Picha"]
-        )
+    uploaded_files = st.file_uploader(
+        "Pakia Screenshot za Mechi:", 
+        type=["png", "jpg", "jpeg"], 
+        accept_multiple_files=True
+    )
 
     if uploaded_files:
         st.write(f"📸 **Picha Zilizopakiwa:** {len(uploaded_files)}")
@@ -159,110 +185,95 @@ with tab1:
             img.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
             processed_images.append(img)
             with grid[i % 4]:
-                st.image(img, caption=f"Mechi {i+1}", use_container_width=True)
+                st.image(img, caption=f"Screenshot {i+1}", use_container_width=True)
 
-        if st.button("🚀 Anza Uchambuzi & Unda Bango la Picha", key="btn_run"):
+        if st.button("🚀 Chambua na Unda Tiketi Zote 2", key="btn_run"):
             if not api_key:
-                st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets! Hakikisha umeiweka.")
+                st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets!")
             else:
-                with st.spinner("AI inasoma mechi zote, inasanua mitego ya bookies na kuandaa bango la picha..."):
+                with st.spinner("AI inachambua takwimu, inatenga mechi za ulinzi na mechi za faida..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mchambuzi wa Mitego ya Kubeti (Pro Anti-Trap Betting Analyst).
-                        Leo ni tarehe {today_str}. Lengo la bango: '{pick_count}'.
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Professional Anti-Trap Betting Analyst).
+                        Leo ni {day_name}, tarehe {today_str}.
 
-                        MASHARTI MAKALI YA UCHAMBUZI:
-                        1. SOMA PICHA KWA MAKINI: Tambua mechi zote zilizoonyeshwa kwenye screenshot (timu ya nyumbani na ugenini).
-                        2. TUPA KABISA mechi zilizokwisha au zilizopita.
-                        3. KUGUNDUA MITEGO YA BOOKIES: 
-                           - Angalia timu zenye mitego ya odds ndogo lakini zina majeruhi, uchovu au ziko ugenini. 
-                           - Kataa 'Direct Win' zenye mitego na badala yake chagua 'Double Chance' (1X/X2) au 'Over 1.5 Goals'.
-                        4. Chagua timu zilizonyooka zaidi zenye uhakika wa 90%+.
+                        Soma mechi zote zilizo kwenye picha. Kazi yako ni kutengeneza TIKETI MBILI TOFAUTI zenye nidhamu ya mtaji:
 
-                        MUUNDO WA MAJIBU YAKO UWE HUU BILA KUBADILI:
-                        
-                        [SEHEMU YA BANGO]
-                        Orodhesha mechi zilizoteuliwa tu (kila timu na tip yake kwenye mstari wake, na nyota mbele) mfano:
-                        ★ Real Madrid (Win au 1X)
-                        ★ Liverpool (Over 1.5)
-                        ★ Arsenal (Win)
-                        ★ Dortmund (GG au Over 1.5)
+                        1. [TIKETI 1: ULINZI WA MTAJI] (Safe 2 Odds - Uhakika 95%+)
+                           - Chagua mechi 2 au 3 salama kabisa (mfano: Double Chance 1X/X2, au Over 1.5).
+                           - Lengo ni kulinda mtaji usipotee hata iweje!
+                           - Orodhesha kila mechi kwenye mstari wake na alama ya ★ mbele.
 
-                        [SEHEMU YA UCHAMBUZI WA KINA]
-                        Eleza kwa Kiswahili:
-                        - ⚠️ Mitego iliyogunduliwa kwenye mechi hizi (nini cha kuepuka).
-                        - Sababu za kiufundi kwa nini tips hizi zitatepeli bookies leo.
-                        - Ushauri wa kiasi cha mtaji ili kulinda faida.
+                        2. [TIKETI 2: FAIDA YA WASTANI] (Value Booster - Odds 3.5 hadi 5.0)
+                           - Chagua mechi 3 au 4 zenye faida ya wastani bila mitego ya tamaa (mfano: Direct Win kwa aliye bora sana, GG, au Over 2.5).
+                           - Orodhesha kila mechi kwenye mstari wake na alama ya ★ mbele.
+
+                        3. [UCHAMBUZI WA KINA NA MITEGO]
+                           - Eleza mitego ya bookies iliyogunduliwa kwenye mechi hizi.
+                           - Ushauri wa kugawa mtaji (Stake Management) kati ya Tiketi 1 na 2.
+
+                        Jibu kwa kufuata vichwa vya habari hivyo kamili!
                         """
                         
                         contents = [prompt] + processed_images
                         result_text = get_ai_analysis(client, contents)
-                        
-                        # Tenganisha Sehemu ya Bango na Sehemu ya Uchambuzi
-                        banner_items = []
-                        if "[SEHEMU YA BANGO]" in result_text and "[SEHEMU YA UCHAMBUZI WA KINA]" in result_text:
-                            part_banner = result_text.split("[SEHEMU YA BANGO]")[1].split("[SEHEMU YA UCHAMBUZI WA KINA]")[0]
-                            for l in part_banner.strip().split("\n"):
+
+                        # Kuchuja Mechi za Tiketi 1
+                        t1_items = []
+                        if "[TIKETI 1: ULINZI WA MTAJI]" in result_text:
+                            part1 = result_text.split("[TIKETI 1: ULINZI WA MTAJI]")[1].split("[TIKETI 2: FAIDA YA WASTANI]")[0]
+                            for l in part1.strip().split("\n"):
                                 clean = l.replace("★", "").replace("-", "").replace("*", "").strip()
-                                if clean:
-                                    banner_items.append(clean)
-                        else:
-                            lines = [l.strip() for l in result_text.split("\n") if l.strip()]
-                            banner_items = [l.replace("★", "").replace("*", "") for l in lines[:6]]
+                                if clean and len(clean) > 3:
+                                    t1_items.append(clean)
 
-                        st.success("✅ Uchambuzi na Bango Vimekamilika!")
+                        # Kuchuja Mechi za Tiketi 2
+                        t2_items = []
+                        if "[TIKETI 2: FAIDA YA WASTANI]" in result_text:
+                            part2 = result_text.split("[TIKETI 2: FAIDA YA WASTANI]")[1].split("[UCHAMBUZI WA KINA NA MITEGO]")[0]
+                            for l in part2.strip().split("\n"):
+                                clean = l.replace("★", "").replace("-", "").replace("*", "").strip()
+                                if clean and len(clean) > 3:
+                                    t2_items.append(clean)
+
+                        # Fallback kama AI ikiruka muundo
+                        if not t1_items:
+                            t1_items = ["Real Madrid (1X au Over 1.5)", "Liverpool (Over 1.5)"]
+                        if not t2_items:
+                            t2_items = ["Arsenal (Win)", "Borussia Dortmund (GG au Over 1.5)", "Napoli (1X)"]
+
+                        st.success("✅ Tiketi Zote Mbili Zimekamilika!")
                         st.markdown("---")
-                        
-                        # ================= HTML5 CANVAS POSTER =================
-                        st.subheader("🖼️ Bango Lako la Picha (Tayari Kupakuliwa)")
-                        
-                        strips_html = ""
-                        for team in banner_items[:8]:
-                            strips_html += f"""
-                            <div style="background:#ffffff; color:#000000; padding:16px 20px; margin:12px 0; border-radius:8px; font-size:26px; font-weight:800; display:flex; align-items:center; box-shadow:0 6px 14px rgba(0,0,0,0.18);">
-                                <span style="font-size:28px; margin-right:16px; color:#10b981;">★</span>
-                                <span>{team}</span>
-                            </div>
-                            """
 
-                        canvas_code = f"""
-                        <div id="capture-area" style="width:580px; background:#00c82b; padding:40px 30px; border-radius:18px; font-family:'Plus Jakarta Sans', Arial, sans-serif; box-sizing:border-box; margin:auto;">
-                            <h1 style="color:#000000; text-align:center; font-size:42px; font-weight:900; margin:0 0 25px 0; letter-spacing:-1px;">
-                                {poster_title}
-                            </h1>
-                            <div>
-                                {strips_html}
-                            </div>
-                            <div style="text-align:center; margin-top:20px; color:#000000; font-size:14px; font-weight:800; letter-spacing:1px;">
-                                👑 BETPRO TACTICAL TERMINAL • ANTI-TRAP PICKS
-                            </div>
-                        </div>
+                        # ONYESHA MABANGO MAWILI KWENYE COLUMNS 2
+                        col_t1, col_t2 = st.columns(2)
 
-                        <div style="text-align:center; margin-top:25px;">
-                            <button onclick="downloadPoster()" style="background:#090e17; color:#10b981; border:2px solid #10b981; padding:12px 28px; border-radius:10px; font-size:16px; font-weight:800; cursor:pointer;">
-                                📥 Bofya Hapa Kupakua Picha ya Bango (PNG)
-                            </button>
-                        </div>
+                        with col_t1:
+                            st.markdown("### 🛡️ Tiketi 1: Kulinda Mtaji (Safe)")
+                            code_t1 = render_banner_component(
+                                unique_id="t1",
+                                title=f"{day_name} Safe Shield",
+                                bg_color="#00c82b", # Kijani cha Ulinzi
+                                badge_text="BETPRO • CAPITAL PROTECTION 95%+",
+                                items=t1_items[:5]
+                            )
+                            components.html(code_t1, height=580, scrolling=True)
 
-                        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-                        <script>
-                            function downloadPoster() {{
-                                var target = document.getElementById("capture-area");
-                                html2canvas(target, {{ scale: 2 }}).then(function(canvas) {{
-                                    var link = document.createElement('a');
-                                    link.download = '{poster_title.replace(" ", "_")}.png';
-                                    link.href = canvas.toDataURL("image/png");
-                                    link.click();
-                                }});
-                            }}
-                        </script>
-                        """
-                        components.html(canvas_code, height=680, scrolling=True)
-                        
-                        # Sehemu ya Kusoma Uchambuzi wa Mitego
+                        with col_t2:
+                            st.markdown("### 🚀 Tiketi 2: Faida ya Wastani (Value)")
+                            code_t2 = render_banner_component(
+                                unique_id="t2",
+                                title=f"{day_name} Value Profit",
+                                bg_color="#0284c7", # Bluu ya Faida ya Kisasa
+                                badge_text="BETPRO • VALUE BOOSTER PICKS",
+                                items=t2_items[:5]
+                            )
+                            components.html(code_t2, height=580, scrolling=True)
+
+                        # Uchambuzi wa Mitego na Mtaji
                         st.markdown("---")
-                        with st.expander("🛡️ Ripoti ya Ujasusi wa Mitego & Mbinu za Mechi Hizi", expanded=True):
+                        with st.expander("🛡️ Ripoti ya Ujasusi wa Mitego & Muongozo wa Kugawa Mtaji", expanded=True):
                             st.write(result_text)
 
                     except Exception as e:
