@@ -3,6 +3,7 @@ from PIL import Image
 from google import genai
 import streamlit.components.v1 as components
 from datetime import datetime
+import time
 
 # Usanidi wa Ukurasa
 st.set_page_config(
@@ -82,16 +83,31 @@ st.markdown('<span class="badge">⚡ BETPRO TACTICAL TERMINAL</span>', unsafe_al
 st.markdown('<p class="title-text">Kichambuzi cha Mechi & Jenereta ya Bango la Picha</p>', unsafe_allow_html=True)
 st.write("Pakia screenshot ya mechi za leo, AI itafanya uchambuzi wa kina na kukutengenezea bango safi lenye vibao vyeupe tayari kupostiwa!")
 
-# Function ya Kuita AI
+# FUNCTION YA KUITA AI YENYE MFUMO WA KUKWEPA FOLENI (503 ERROR FIX)
 def get_ai_analysis(client, contents):
-    try:
-        res = client.models.generate_content(model="gemini-2.5-flash", contents=contents)
-        return res.text
-    except Exception:
-        res = client.models.generate_content(model="gemini-3.8-flash", contents=contents)
-        return res.text
+    # Orodha ya matoleo halisi ya Google yatakayojaribiwa moja baada ya jingine
+    valid_models = [
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-1.5-flash"
+    ]
+    
+    last_error = None
+    for model_name in valid_models:
+        for attempt in range(2): # Jaribu mara 2 kwa kila toleo kama kuna msongamano
+            try:
+                res = client.models.generate_content(model=model_name, contents=contents)
+                if res and res.text:
+                    return res.text
+            except Exception as e:
+                last_error = e
+                time.sleep(1.5) # Subiri sekunde 1.5 kabla ya kurukia toleo jingine
+                continue
+                
+    raise last_error if last_error else Exception("Mifumo ya AI ina msongamano mkubwa kwa sasa, jaribu tena baada ya sekunde chache.")
 
-# TABS MBILI TU
+# TABS MBILI
 tab1, tab2 = st.tabs(["📸 Kichambuzi cha Mechi & Bango", "⚽ LiveScores Mubashara"])
 
 # ================= TAB 1: UCHAMBUZI =================
@@ -103,7 +119,7 @@ with tab1:
     <div class="card-box">
         <h4 style="margin:0 0 6px 0; color:#10b981;">🎯 Pakia Screenshot za Mechi ({day_name} - {today_str})</h4>
         <p style="margin:0; font-size:0.9rem; color:#94a3b8;">
-            Unaweza kupakia screenshot 1 au nyingi kwa mkupuo. AI itachagua mechi bora zisizo na mitego na kuunda bango la kisasa.
+            Unaweza kupakia screenshot 1 au nyingi kwa mkupuo. AI itasoma mechi zote, itagundua mitego ya makampuni na kuunda bango la kisasa.
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -116,10 +132,10 @@ with tab1:
             accept_multiple_files=True
         )
     with c2:
-        poster_title = st.text_input("Kichwa cha Bango la Picha:", value=f"{day_name} Picks")
+        poster_title = st.text_input("Kichwa cha Bango la Picha:", value=f"{day_name} VIP Picks")
         pick_count = st.selectbox(
             "Idadi ya Mechi kwenye Bango:",
-            ["Mechi 4 za Uhakika (Kama Muundo Wako)", "Mechi 2 za Chuma (Safe 2 Odds)", "Treni la Mechi 6-8"]
+            ["Mechi 4 za Uhakika (Kama Muundo Wako)", "Mechi 2 za Chuma (Safe 2 Odds)", "Treni la Mechi 6-8", "Mechi Zote Zilizopo Kwenye Picha"]
         )
 
     if uploaded_files:
@@ -137,31 +153,35 @@ with tab1:
             if not api_key:
                 st.error("Hitilafu: GEMINI_API_KEY haipo kwenye Secrets! Hakikisha umeiweka.")
             else:
-                with st.spinner("AI inachambua mbinu za makocha, fomu na kuandaa bango la picha..."):
+                with st.spinner("AI inasoma mechi zote, inasanua mitego ya bookies na kuandaa bango la picha..."):
                     try:
                         client = genai.Client(api_key=api_key)
                         prompt = f"""
-                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka (Professional Betting Analyst).
+                        Wewe ni Mkuu wa Kitengo cha Ujasusi wa Soka na Mchambuzi wa Mitego ya Kubeti (Pro Anti-Trap Betting Analyst).
                         Leo ni tarehe {today_str}. Lengo la bango: '{pick_count}'.
 
-                        MASHARTI YA UCHAMBUZI:
-                        1. TUPA KABISA mechi zilizokwisha chezwa au za jana. Tumia mechi zijazo za leo/kesho AMBAZO HAZIJAANZA TU.
-                        2. ONDOA MITEGO YA ODDS: Tupa timu kubwa zenye uchovu au mechi za dabi zenye vurugu.
-                        3. Chagua timu salama zaidi zenye uhakika wa 90%+ (Double chance, Over 1.5, au Direct Win kwa timu iliyo bora nyumbani).
+                        MASHARTI MAKALI YA UCHAMBUZI:
+                        1. SOMA PICHA KWA MAKINI: Tambua mechi zote zilizoonyeshwa kwenye screenshot (timu ya nyumbani na ugenini).
+                        2. TUPA KABISA mechi zilizokwisha au zilizopita.
+                        3. KUGUNDUA MITEGO YA BOOKIES: 
+                           - Angalia timu zenye mitego ya odds ndogo lakini zina majeruhi, uchovu au ziko ugenini. 
+                           - Kataa 'Direct Win' zenye mitego na badala yake chagua 'Double Chance' (1X/X2) au 'Over 1.5 Goals'.
+                        4. Chagua timu zilizonyooka zaidi zenye uhakika wa 90%+.
 
-                        Muundo wa majibu yako uwe na sehemu mbili:
+                        MUUNDO WA MAJIBU YAKO UWE HUU BILA KUBADILI:
                         
                         [SEHEMU YA BANGO]
-                        Andika orodha ya timu zilizoteuliwa tu (kila timu kwenye mstari wake, zikiwa na nyota mbele) mfano:
-                        ★ Tottenham
-                        ★ AS Roma
-                        ★ Middlesbrough
-                        ★ Atl. Madrid
+                        Orodhesha mechi zilizoteuliwa tu (kila timu na tip yake kwenye mstari wake, na nyota mbele) mfano:
+                        ★ Real Madrid (Win au 1X)
+                        ★ Liverpool (Over 1.5)
+                        ★ Arsenal (Win)
+                        ★ Dortmund (GG au Over 1.5)
 
                         [SEHEMU YA UCHAMBUZI WA KINA]
-                        Eleza kwa Kiswahili fasaha:
-                        - Sababu za kiufundi kwa kila mechi (mbinu za kocha, majeruhi, na motisha ya pointi).
-                        - Ushauri wa kiasi cha mtaji na jinsi ya kulinda pesa.
+                        Eleza kwa Kiswahili:
+                        - ⚠️ Mitego iliyogunduliwa kwenye mechi hizi (nini cha kuepuka).
+                        - Sababu za kiufundi kwa nini tips hizi zitatepeli bookies leo.
+                        - Ushauri wa kiasi cha mtaji ili kulinda faida.
                         """
                         
                         contents = [prompt] + processed_images
@@ -176,8 +196,9 @@ with tab1:
                                 if clean:
                                     banner_items.append(clean)
                         else:
-                            # Fallback
-                            banner_items = ["Tottenham", "AS Roma", "Middlesbrough", "Atl. Madrid"]
+                            # Kama AI ikiruka muundo, chukua mistari ya kwanza
+                            lines = [l.strip() for l in result_text.split("\n") if l.strip()]
+                            banner_items = [l.replace("★", "").replace("*", "") for l in lines[:4]]
 
                         st.success("✅ Uchambuzi na Bango Vimekamilika!")
                         st.markdown("---")
@@ -186,24 +207,24 @@ with tab1:
                         st.subheader("🖼️ Bango Lako la Picha (Tayari Kupakuliwa)")
                         
                         strips_html = ""
-                        for team in banner_items[:6]:
+                        for team in banner_items[:8]:
                             strips_html += f"""
-                            <div style="background:#ffffff; color:#000000; padding:18px 24px; margin:16px 0; border-radius:6px; font-size:32px; font-weight:800; display:flex; align-items:center; box-shadow:0 6px 14px rgba(0,0,0,0.15);">
-                                <span style="font-size:36px; margin-right:20px;">★</span>
+                            <div style="background:#ffffff; color:#000000; padding:16px 20px; margin:12px 0; border-radius:8px; font-size:26px; font-weight:800; display:flex; align-items:center; box-shadow:0 6px 14px rgba(0,0,0,0.18);">
+                                <span style="font-size:28px; margin-right:16px; color:#10b981;">★</span>
                                 <span>{team}</span>
                             </div>
                             """
 
                         canvas_code = f"""
-                        <div id="capture-area" style="width:580px; background:#00c82b; padding:45px 35px; border-radius:18px; font-family:'Plus Jakarta Sans', Arial, sans-serif; box-sizing:border-box; margin:auto;">
-                            <h1 style="color:#000000; text-align:center; font-size:48px; font-weight:900; margin:0 0 30px 0; letter-spacing:-1px;">
+                        <div id="capture-area" style="width:580px; background:#00c82b; padding:40px 30px; border-radius:18px; font-family:'Plus Jakarta Sans', Arial, sans-serif; box-sizing:border-box; margin:auto;">
+                            <h1 style="color:#000000; text-align:center; font-size:42px; font-weight:900; margin:0 0 25px 0; letter-spacing:-1px;">
                                 {poster_title}
                             </h1>
                             <div>
                                 {strips_html}
                             </div>
-                            <div style="text-align:center; margin-top:25px; color:#000000; font-size:14px; font-weight:800; letter-spacing:1px;">
-                                👑 BETPRO TACTICAL ANALYST
+                            <div style="text-align:center; margin-top:20px; color:#000000; font-size:14px; font-weight:800; letter-spacing:1px;">
+                                👑 BETPRO TACTICAL TERMINAL • ANTI-TRAP PICKS
                             </div>
                         </div>
 
@@ -226,11 +247,11 @@ with tab1:
                             }}
                         </script>
                         """
-                        components.html(canvas_code, height=650, scrolling=False)
+                        components.html(canvas_code, height=680, scrolling=True)
                         
-                        # Sehemu ya Kusoma Uchambuzi wa Kina
+                        # Sehemu ya Kusoma Uchambuzi wa Mitego
                         st.markdown("---")
-                        with st.expander("📄 Soma Ripoti Kamili ya Mbinu za Mechi Hizi (Makocha & Takwimu)", expanded=True):
+                        with st.expander("🛡️ Ripoti ya Ujasusi wa Mitego & Mbinu za Mechi Hizi", expanded=True):
                             st.write(result_text)
 
                     except Exception as e:
